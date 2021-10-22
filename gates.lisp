@@ -10,10 +10,10 @@
   (defparameter *signal-1* (make-signal))
   (defparameter *signal-2* (make-signal))
   (defparameter *printer* (make-printer))
-  (defparameter *and* (make-and-gate))
-  (wire ((csignal-out *signal-1*) 1 (and-gate-a *and*)))
-  (wire ((csignal-out *signal-2*) 1 (and-gate-b *and*)))
-  (wire ((and-gate-out *and*) 1 (printer-in *printer*))))
+  (defparameter *and* (make-and))
+  (wire ((csignal-out *signal-1*) 1 (and-a *and*)))
+  (wire ((csignal-out *signal-2*) 1 (and-b *and*)))
+  (wire ((and-out *and*) 1 (printer-in *printer*))))
 
 (defstruct (csignal (:include ic) (:constructor make-signal))
   (out (make-output-pin)))
@@ -33,7 +33,8 @@
 		       `(progn ,@(loop for pin in pins
 				       collect `(cut-output ,pin time)))))
 	    (with-pins-and-registers printer chip
-	      ;; Note that this will only print on change of input. That is the rise or fall of the input signal.
+	      ;; Note that this will only print on change of input.
+	      ;; That is the rise or fall of the input signal.
 	      (format t "Receiving ~a!~%" (pin-input in))))))
 (defun make-printer ()
   (let ((new-printer (raw-make-printer)))
@@ -42,9 +43,15 @@
     new-printer))
 
 (defmacro define-ic (name &key pins registers event-processor)
-  (let* ((constructor-func (intern (format nil "MAKE-~a" (symbol-name name))))
-	 (raw-constructor-func (intern (format nil "RAW-MAKE-~a" (symbol-name name)))))
-
+  (let* ((alias (or (when (listp name)
+		      (getf (cdr name) :alias))
+		    name))
+	 (conc-name (when (and (listp name) (getf (cdr name) :alias))
+		      (intern (concatenate 'string (symbol-name alias) "-"))))
+	 (name (if (symbolp name) name (car name)))
+	 (constructor-func (intern (format nil "MAKE-~a" (symbol-name alias))))
+	 (raw-constructor-func (intern (format nil "RAW-MAKE-~a" (symbol-name alias)))))
+    (format t "Name ~a  alias ~a~%" name alias)
     (labels ((struct-pin-list (pin-list)
 	       (let ((keyword-plist '(:input make-input-pin
 				      :drive make-drive-pin
@@ -56,14 +63,17 @@
 				  ,@(case pin-type (:drive `(:name ',pin-name))))))))
 	     (accessor-pin-list (pin-list)
 	       (loop for (pin-name x) in pin-list
-		     collect `(,pin-name ,(intern (format nil "~a-~a" name pin-name))))))
+		     collect `(,pin-name ,(intern (format nil "~a-~a" alias pin-name))))))
       
       `(progn
-	 (defstruct (,name (:include ic) (:constructor ,raw-constructor-func))
+	 (defstruct (,name (:include ic)
+			   ,(when alias
+			      `(:conc-name ,conc-name))
+			   (:constructor ,raw-constructor-func))
 	   ,@(struct-pin-list pins))
 	 
+	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
-	   (format t "Evaluating eval-when~%")
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
 	   
 	   (setf (gethash ',name *event-processor-table*)
@@ -90,7 +100,7 @@
 		(ic-event-processor chip) (gethash ',name *event-processor-table*))
 	       chip)))))))
 
-(define-ic and-gate
+(define-ic (and-gate :alias and)
   :pins
   ((a :drive)
    (b :drive)
@@ -101,7 +111,7 @@
 	       (t
 		(floating out))))))
 
-(define-ic or-gate
+(define-ic (or-gate :alias or)
   :pins
   ((a :drive)
    (b :drive)
@@ -112,7 +122,7 @@
 		(t
 		 (floating out))))))
 
-(define-ic xor-gate
+(define-ic (xor-gate :alias xor)
   :pins
   ((a :drive)
    (b :drive)
@@ -123,7 +133,7 @@
 		(t
 		 (floating out))))))
 
-(define-ic buffer-gate
+(define-ic buffer
   :pins ((in :drive)
 	 (out :output))
   :event-processor
@@ -131,7 +141,7 @@
 	   (output out (pin-input in))
 	   (floating out)))))
 
-(define-ic not-gate
+(define-ic (not-gate :alias not)
   :pins ((in :drive)
 	 (out :output))
   :event-processor
