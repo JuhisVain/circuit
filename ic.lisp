@@ -33,20 +33,24 @@
 	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
-	   
-	   (setf (gethash ',name *event-processor-table*)
-		 #'(lambda (CHIP SOURCE TIME)
-		     (macrolet ((output (&rest pin-values)
-				  `(progn ,@(loop for (pin value) on pin-values by #'cddr
-						  collect `(set-output ,pin ,value time))))
-				(floating (&rest pins)
-				  `(progn ,@(loop for pin in pins
-						  collect `(cut-output ,pin time))))
-				(set-register (&rest register-values)
-				  `(progn ,@(loop for (register value) on register-values by #'cddr
-						  collect `(setf ,register ,value)))))
-		       (with-pins-and-registers ,name chip
-			 (case source ,@event-processor))))))
+
+	   ,(when event-processor
+	      `(setf (gethash ',name *event-processor-table*)
+		     #'(lambda (CHIP SOURCE TIME)
+			 (macrolet ((output (&rest pin-values)
+				      `(progn
+					 ,@(loop for (pin value) on pin-values by #'cddr
+						 collect `(set-output ,pin ,value time))))
+				    (floating (&rest pins)
+				      `(progn
+					 ,@(loop for pin in pins
+						 collect `(cut-output ,pin time))))
+				    (set-register (&rest register-values)
+				      `(progn
+					 ,@(loop for (register value) on register-values by #'cddr
+						 collect `(setf ,register ,value)))))
+			   (with-pins-and-registers ,name chip
+			     (case source ,@event-processor)))))))
 
 	 (defun ,constructor-func ()
 	   (let ((chip (,raw-constructor-func)))
