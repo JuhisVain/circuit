@@ -3,8 +3,11 @@
 (deftype binary-data ()
   `(or bit null))
 
+(deftype pin-with-input ()
+  `(or input-pin drive-pin bus-pin))
+
 (deftype valid-logic-input ()
-  `(or pin binary-data))
+  `(or pin-with-input binary-data))
 
 (defmacro def=fun (name lambda-list &body body)
   `(progn
@@ -34,3 +37,26 @@
 (def=fun =not (a)
   (when a
     (logxor a 1)))
+
+(def=fun =nand (a b)
+  (when (and a b)
+    (=not (=and a b))))
+
+(def=fun =xnor (a b)
+  (when (and a b)
+    (=not (=xor a b))))
+
+(def=fun =nor (a b)
+  (when (and a b)
+    (=not (=or a b))))
+
+(def=fun =buffer (a)
+  a) ; eh
+
+(def=fun =imply (a b)
+  (when (and a b)
+    (=or (=not a) b)))
+
+(def=fun =nimply (a b)
+  (when (and a b)
+    (=nor (=not a) b)))
