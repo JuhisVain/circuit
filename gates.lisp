@@ -34,10 +34,7 @@
    (b :drive)
    (out :output))
   :event-processor
-  (((a b) (cond ((and (bitp (pin-input a)) (bitp (pin-input b)))
-		(output out (logand (pin-input a) (pin-input b))))
-	       (t
-		(floating out))))))
+  (((a b) (output out (=and a b)))))
 
 (define-ic (or-gate :alias or)
   :pins
@@ -45,10 +42,7 @@
    (b :drive)
    (out :output))
   :event-processor
-  (((a b) (cond ((and (bitp (pin-input a)) (bitp (pin-input b)))
-		 (output out (logior (pin-input a) (pin-input b))))
-		(t
-		 (floating out))))))
+  (((a b) (output out (=or a b)))))
 
 (define-ic (xor-gate :alias xor)
   :pins
@@ -56,10 +50,7 @@
    (b :drive)
    (out :output))
   :event-processor
-  (((a b) (cond ((and (bitp (pin-input a)) (bitp (pin-input b)))
-		 (output out (logxor (pin-input a) (pin-input b))))
-		(t
-		 (floating out))))))
+  (((a b) (output out (=xor a b)))))
 
 (define-ic buffer
   :pins ((in :drive)
@@ -73,6 +64,4 @@
   :pins ((in :drive)
 	 (out :output))
   :event-processor
-  ((in (if (bitp (pin-input in))
-	   (output out (lognot (pin-input in)))
-	   (floating out)))))
+  ((in (output out (=not in)))))
