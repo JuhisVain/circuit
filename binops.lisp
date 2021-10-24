@@ -33,4 +33,4 @@
 
 (def=fun =not (a)
   (when a
-    (lognot a)))
+    (logxor a 1)))
