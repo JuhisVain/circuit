@@ -115,8 +115,7 @@ wire
 (pin | fork-name {wire-length pin | (:fork fork-name)}*)*"
   (let* ((forklet)
 	 (wiring (mapcar #'(lambda (x)
-			     (cond ((and (listp x)
-					 (eq :fork (car x)))
+			     (cond ((and (listp x) (eq :fork (car x)))
 				    (push `(,(cadr x) (make-wire)) forklet)
 				    (cadr x))
 				   (t x)))
@@ -167,7 +166,6 @@ wire
 							  (pin-output pin))
 						     (error "2 or more active outputs in wire assembly!"))))))
 		 ;; Schedule events:
-		 ;;; Does nil propagate??? I guess this is a problem for the thingie that will handle it
 		 (dolist (sche-pin connected-pins)
 		   (propagate (cdr sche-pin) current-input (car sche-pin)))))))))
 	       
