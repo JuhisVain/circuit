@@ -138,12 +138,19 @@ wire
   wire)
 
 (defun set-up-wire (a b &optional (length 1))
-  (let ((wire (make-wire :length length)))
-    (connect-wire wire a)
-    (connect-wire wire b)))
+  (cond ((wire-p a)
+	 (connect-wire a b)
+	 (unless (wire-length a)
+	   (setf (wire-length a) length)))
+	((wire-p b)
+	 (connect-wire b a)
+	 (unless (wire-length b)
+	   (setf (wire-length b) length)))
+	(t (let ((wire (make-wire :length length)))
+	     (connect-wire wire a)
+	     (connect-wire wire b)))))
 
 (defun update-wire-state (source-pin time)
-  (format t "Wire state update!~%")
   (serapeum:heap-insert
    *event-queue*
    (cons time
