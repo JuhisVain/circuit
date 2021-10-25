@@ -108,6 +108,11 @@
    (i4002-d0 ram03)))
 
 (defmacro wire (main &rest branching)
+  "Convenience macro to form a wire sequentially starting from a pin and moving
+to another pin while passing through forks defined in BRANCHING.
+wire
+(pin {wire-length pin | (:fork fork-name)}*)
+(pin | fork-name {wire-length pin | (:fork fork-name)}*)*"
   (let* ((forklet)
 	 (wiring (mapcar #'(lambda (x)
 			     (cond ((and (listp x)
