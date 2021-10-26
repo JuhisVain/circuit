@@ -215,41 +215,6 @@ wire
 (defun event-processor (component)
   (gethash component *event-processor-table*))
 
-(defstruct (i4004 (:include ic) (:constructor raw-make-i4004))
-  ;;Pinout
-  (d0 (make-bus-pin) :type bus-pin)
-  (d1 (make-bus-pin) :type bus-pin)
-  (d2 (make-bus-pin) :type bus-pin)
-  (d3 (make-bus-pin) :type bus-pin)
-  (v-ss)
-  (clock-phase-1 (make-drive-pin :name 'clock-phase-1) :type drive-pin)
-  (clock-phase-2 (make-drive-pin :name 'clock-phase-2) :type drive-pin)
-  (sync (make-output-pin) :type output-pin)
-  (reset (make-input-pin) :type input-pin)
-  (test (make-input-pin) :type input-pin)
-  (cm-rom (make-output-pin) :type output-pin)
-  (v-dd)
-  (cm-ram-3 (make-output-pin) :type output-pin)
-  (cm-ram-2 (make-output-pin) :type output-pin)
-  (cm-ram-1 (make-output-pin) :type output-pin)
-  (cm-ram-0 (make-output-pin) :type output-pin)
-  ;;Registers
-  (clock-counter 0)
-  (ROM-address #*000000000000)
-  (RAM-command-line 0)
-  (op-memory (list #*00000000 #*00000000)) ; one-byte-op & two-byte-op's vars
-  (op-memory-pointer 0) ; 0 or 1, index of op-memory to fill, usually 0
-  (index-register (make-array 64 :element-type 'bit))
-  (carry-bit 0)
-  (accumulator (make-array 4 :element-type 'bit))
-  (stack (make-array 3
-		     :initial-contents
-		     (list 
-		      (make-array 12 :element-type 'bit)
-		      (make-array 12 :element-type 'bit)
-		      (make-array 12 :element-type 'bit))))
-  (stack-pointer 0))
-
 (defvar *component-pin-lib* (make-hash-table :test 'eq))
 (defvar *component-register-lib* (make-hash-table :test 'eq))
 (defun store-component-pin-list (component-type pin-data)
@@ -261,38 +226,6 @@ wire
   (setf (gethash component-type *component-register-lib*) register-data))
 (defun list-registers (component-type)
   (gethash component-type *component-register-lib*))
-
-(store-component-pin-list
- 'i4004
- '((d0 i4004-d0)
-   (d1 i4004-d1)
-   (d2 i4004-d2)
-   (d3 i4004-d3)
-   (v-ss i4004-v-ss)
-   (clock-phase-1 i4004-clock-phase-1)
-   (clock-phase-2 i4004-clock-phase-2)
-   (sync i4004-sync)
-   (reset i4004-reset)
-   (test i4004-test)
-   (cm-rom i4004-cm-rom)
-   (v-dd i4004-v-dd)
-   (cm-ram-3 i4004-cm-ram-3)
-   (cm-ram-2 i4004-cm-ram-2)
-   (cm-ram-1 i4004-cm-ram-1)
-   (cm-ram-0 i4004-cm-ram-0)))
-
-(store-component-register-list
- 'i4004
- '((clock-counter i4004-clock-counter)
-   (ROM-address i4004-ROM-address)
-   (RAM-command-line i4004-RAM-command-line)
-   (op-memory i4004-op-memory)
-   (op-memory-pointer i4004-op-memory-pointer)
-   (index-register i4004-index-register)
-   (carry-bit i4004-carry-bit)
-   (accumulator i4004-accumulator)
-   (stack i4004-stack)
-   (stack-pointer i4004-stack-pointer)))
 
 (defvar *chip-pinout-lib* (make-hash-table :test 'eq))
 
@@ -311,12 +244,6 @@ PIN using ACCESSOR."
   (funcall (gethash pin-name (gethash (type-of chip) *chip-pinout-lib*))
 	   chip))
 
-(defun make-i4004 ()
-  (let ((new-i4004 (raw-make-i4004)))
-    (setf (drive-pin-chip (i4004-clock-phase-1 new-i4004)) new-i4004
-	  (drive-pin-chip (i4004-clock-phase-2 new-i4004)) new-i4004)
-    new-i4004))
-
 (defvar *op-code-library* (make-hash-table :test 'eq))
 
 (defun chip-op-lib (chip)
@@ -333,8 +260,6 @@ PIN using ACCESSOR."
   (operation)
   (zero)
   (one))
-
-(setf (gethash 'i4004 *op-code-library*) (make-op-node))
 
 (defun add-op-code (operation op-code-listing op-tree)
   (let ((op-code-listing ;; Cull trailing var symbols
@@ -416,18 +341,19 @@ PIN using ACCESSOR."
 (defmacro defoperation (chip mnemonic (&rest bits) &body body)
   (let ((variables (collect-op-code-variables bits)))
     `(add-op-code
-      (make-operation :function
-		      #'(lambda (op-code chip trigger)
-			  (let ,(mapcar #'(lambda (op-var-indexes)
-					    `(,(car op-var-indexes)
-					      (make-array ,(length (cdr op-var-indexes))
-							  :element-type 'bit
-							  :initial-contents (mapcar #'(lambda (index)
-											(bit op-code index))
-										    ',(cdr op-var-indexes)))))
-				 variables)
-			    ,@body))
-		      :length ,(length bits))
+      (make-operation
+       :function
+       #'(lambda (op-code chip trigger)
+	   (let ,(mapcar #'(lambda (op-var-indexes)
+			     `(,(car op-var-indexes)
+			       (make-array ,(length (cdr op-var-indexes))
+					   :element-type 'bit
+					   :initial-contents (mapcar #'(lambda (index)
+									 (bit op-code index))
+								     ',(cdr op-var-indexes)))))
+		  variables)
+	     ,@body))
+       :length ,(length bits))
       ',bits
       (chip-op-lib ',chip))))
 
@@ -438,38 +364,6 @@ PIN using ACCESSOR."
 (defun bit-truep (bit-array)
   (not (bit-zerop bit-array)))
 
-'(defoperation i4004 SRC (0 1 0 0 1 R R R)
-  (let* ((index (bit-integer R))
-	 (address (subseq index-register index (+ index 8))))
-    (add-to-cycle
-     ((12 13) (bitarray-output (d0 d1 d2 d3) (subseq address 0 4)))
-     ((14 15) (bitarray-output (d0 d1 d2 d3) (subseq address 4 8))))))
-
-'(defoperation i4004 JCN (1 0 0 0 C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
-  (case (i4004-op-memory-pointer chip)
-    (0
-     (add-to-cycle
-      (15 (setf (i4004-op-memory-pointer chip) 1))))
-    (1
-     (add-to-cycle
-      (15
-       (let ((jump (or (and (bit-zerop C1)
-			    (or
-			     (and (bit-truep C2) (bit-zerop (i4004-accumulator chip)))
-			     (and (bit-truep C3) (not (zerop (i4004-carry-bit chip))))
-			     (and (bit-truep C4) (zerop (pin-input (i4004-test chip))))))
-		       (and (bit-truep C1)
-			    (not (or
-				  (and (bit-truep C2) (bit-zerop (i4004-accumulator chip)))
-				  (and (bit-truep C3) (not (zerop (i4004-carry-bit chip))))
-				  (and (bit-truep C4) (zerop (pin-input (i4004-test chip))))))))))
-	 (when jump
-	   (setf (i4004-rom-address chip)
-		 (bit-ior (bit-and (i4004-rom-address chip)
-				   #*000000001111)
-			  (bits A1 A2 #*0000)))) ;; Unsure bit order!!
-	 (setf (i4004-op-memory-pointer chip) 0)))))))
-
 (defun execute-operation (chip op-code trigger)
   (funcall (chip-op chip op-code) op-code chip trigger))
 
@@ -478,114 +372,6 @@ PIN using ACCESSOR."
 							  (list-registers component-type))
 			   collect `(,name ,(list accessor component)))
      ,@body))
-
-'(setf (gethash 'i4004 *event-processor-table*)
-  #'(lambda (chip source time)
-      (macrolet ((output (&rest pin-values)
-		   `(progn ,@(loop for (pin value) on pin-values by #'cddr
-				   collect `(set-output ,pin ,value time))))
-		 (floating (&rest pins) ; Maybe not the right word
-		   `(progn ,@(loop for pin in pins
-				   collect `(cut-output ,pin time))))
-		 (set-register (&rest register-values)
-		   `(progn ,@(loop for (register value) on register-values by #'cddr
-				   collect `(setf ,register ,value))))
-		 (execute (op)
-		   `(execute-operation chip
-				       (if (= op-memory-pointer 0)
-					   (car ,op)
-					   (apply #'bits ,op))
-				       trigger)))
-	(with-pins-and-registers i4004 chip
-	  (flet ((TRIGGER-clock-counter (trigger)
-		   (case trigger
-		     (0 (output sync 1
-				cm-rom 1
-				d0 (bit 0 ROM-address)
-				d1 (bit 1 ROM-address)
-				d2 (bit 2 ROM-address)
-				d3 (bit 3 ROM-address)))
-		     (2 (output d0 (bit 4 ROM-address)
-				d1 (bit 5 ROM-address)
-				d2 (bit 6 ROM-address)
-				d3 (bit 7 ROM-address)))
-		     (4 (output d0 (bit 8 ROM-address)
-				d1 (bit 9 ROM-address)
-				d2 (bit 10 ROM-address)
-				d3 (bit 11 ROM-address)))
-		     (5 (output cm-rom 0))
-		     (6
-		      (output cm-rom 1)
-		      (floating d0 d1 d2 d3))
-		     (7
-		      (set-register (nth op-memory-pointer op-memory)
-				    (bits d0 d1 d2 d3 #*0000)))
-		     (8
-		      (when (equal (nth 0 op-memory)
-				   #*01110000)
-			(output cm-rom 0
-				cm-ram-0 0
-				cm-ram-1 0
-				cm-ram-2 0
-				cm-ram-3 0)))
-		     (9
-		      (set-register (nth op-memory-pointer op-memory)
-				    (bit-ior op-memory
-					     (bits #*0000 d0 d1 d2 d3))))
-
-		     (10 (output cm-rom 1)
-		      (case RAM-command-line
-			(0 (output cm-ram-0 1
-				   cm-ram-1 0
-				   cm-ram-2 0
-				   cm-ram-3 0))
-			(1 (output cm-ram-0 0
-				   cm-ram-1 1
-				   cm-ram-2 0
-				   cm-ram-3 0))
-			(2 (output cm-ram-0 0
-				   cm-ram-1 0
-				   cm-ram-2 1
-				   cm-ram-3 0))
-			(3 (output cm-ram-0 0
-				   cm-ram-1 0
-				   cm-ram-2 0
-				   cm-ram-3 1))))
-		     (12 (execute op-memory))
-		     (13
-		      (when (equal (bit-and (first op-memory) #*11110000)
-				   #*01000000)
-			(output cm-ram-0 0
-				cm-ram-1 0
-				cm-ram-2 0
-				cm-ram-3 0))
-		      (output cm-rom 1)
-		      (execute op-memory))
-		     (14 (output sync 0)
-		      (case RAM-command-line
-			(0 (output cm-ram-0 1
-				   cm-ram-1 0
-				   cm-ram-2 0
-				   cm-ram-3 0))
-			(1 (output cm-ram-0 0
-				   cm-ram-1 1
-				   cm-ram-2 0
-				   cm-ram-3 0))
-			(2 (output cm-ram-0 0
-				   cm-ram-1 0
-				   cm-ram-2 1
-				   cm-ram-3 0))
-			(3 (output cm-ram-0 0
-				   cm-ram-1 0
-				   cm-ram-2 0
-				   cm-ram-3 1)))
-		      (execute op-memory)))))
-	    (case source
-	      (('clock-phase-1 'clock-phase-2)
-	       (TRIGGER-clock-counter (set-register clock-counter (1+ clock-counter)))))
-	    )))))
-
-
 
 (defun set-output (pin value time)
   (format t "Setting old ~a output to ~a at pin ~a!~%" (output-pin-output pin) value pin)
@@ -671,191 +457,3 @@ PIN using ACCESSOR."
 	(t (- (1+ (loop for bit across bit-array
 			for power from 0
 			sum (* (logxor bit 1) (expt 2 power))))))))
-
-
-
-#|
-(defcycle i4004-cycle
-  send-rom-address
-  receive-instruction
-  execute-instruction)
-
-(defcyclephase send-rom-address (clock-counter)
-  ((0 1) (output sync 1
-		 cm-rom 1
-		 d0 (bit 0 ROM-address)
-		 d1 (bit 1 ROM-address)
-		 d2 (bit 2 ROM-address)
-		 d3 (bit 3 ROM-address)))
-  ((2 3) (output sync 1
-		 cm-rom 1
-		 d0 (bit 4 ROM-address)
-		 d1 (bit 5 ROM-address)
-		 d2 (bit 6 ROM-address)
-		 d3 (bit 7 ROM-address)))
-  (4 (output sync 1
-	     cm-rom 1
-	     d0 (bit 8 ROM-address)
-	     d1 (bit 9 ROM-address)
-	     d2 (bit 10 ROM-address)
-	     d3 (bit 11 ROM-address)))
-  (5 (output sync 1
-	     cm-rom 0
-	     d0 (bit 8 ROM-address)
-	     d1 (bit 9 ROM-address)
-	     d2 (bit 10 ROM-address)
-	     d3 (bit 11 ROM-address))))
-
-(defcyclephase receive-instruction (clock-counter)
-  (6 (output sync 1
-	     cm-rom 1))
-  (7 (output sync 1
-	     cm-rom 1)
-     (set-register op-memory
-		   (bits d0 d1 d2 d3 #*0000)))
-  (8 (output sync 1)
-     (cond ((equal op-memory #*01110000)
-	    (output cm-rom 0
-		    cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 0)
-	    (t (output cm-rom 1)))))
-  (9 (output sync 1)
-     (set-register op-memory
-		   (bit-ior op-memory
-			    (bits #*0000 d0 d1 d2 d3)))
-     (cond ((equal op-memory #*01110000)
-	    (output cm-rom 0
-		    cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 0)
-	    (t (output cm-rom 1))))))
-
-(defcyclephase execute-instruction (clock-counter)
-  ((10 11) (output sync 1
-		   cm-rom 1)
-	   (cm-ram RAM-command-line))
-  (12 (output sync 1
-	      cm-rom 1)
-      (cm-ram RAM-command-line)
-      (execute op-memory))
-  (13 (output sync 1)
-      (cond ((equal (bit-and op-memory #*11110000)
-		    #*01000000)
-	     (cm-ram nil)
-	     (output cm-rom 1))
-	    (t (cm-ram RAM-command-line)
-	       (output cm-rom 1)))
-      (execute op-memory))
-  ((14 15) (output sync 0
-		   cm-rom 1)
-	   (cm-ram RAM-command-line)
-	   (execute op-memory)))
-
-'(defoperation SRC (0 1 0 0 0 R R R)
-  (let* ((index (bit-integer R))
-	 (address (subseq index-register index (+ index 8))))
-    (add-to-cycle
-     ((12 13) (bitarray-output (d0 d1 d2 d3) (subseq address 0 4)))
-     ((14 15) (bitarray-output (d0 d1 d2 d3) (subseq address 4 8))))))
-
-
-(defstruct ic
-  (name "i4004")
-  (pinout d0
-	   d1
-	   d2
-	   d3
-	   v-ss
-	   clock-phase-1
-	   clock-phase-2
-	   sync
-	   reset
-	   test
-	   cm-rom
-	   v-dd
-	   cm-ram-3
-	   cm-ram-2
-	   cm-ram-1
-	   cm-ram-0))
-
-
-(defmacro defic (name &key pinout registers)
-  )
-
-;;could actually select more than one
-(defmacro cm-ram (pin) ;;selector in pinout list will generate a local macro like this
-  `(case ,pin
-     (3 (output cm-ram-3 1
-		cm-ram-2 0
-		cm-ram-1 0
-		cm-ram-0 0))
-     (2 (output cm-ram-3 0
-		cm-ram-2 1
-		cm-ram-1 0
-		cm-ram-0 0))
-     (1 (output cm-ram-3 0
-		cm-ram-2 0
-		cm-ram-1 1
-		cm-ram-0 0))
-     (0 (output cm-ram-3 0
-		cm-ram-2 0
-		cm-ram-1 0
-		cm-ram-0 1))))
-
-(defic i4004
-  :pinout (d0
-	   d1
-	   d2
-	   d3
-	   v-ss
-	   ;; valid types would be input, output, bus & drive. If no drive specified all inputs will be drives:
-	   (clock-phase-1 :input)
-	   (clock-phase-2 :input)
-	   sync
-	   reset
-	   test
-	   cm-rom
-	   v-dd
-	   (selector (cm-ram 1 0) ; name output@selected output@elsewhere
-		     (3 cm-ram-3)
-		     (2 cm-ram-2)
-		     (1 cm-ram-1)
-		     (0 cm-ram-0)))
-  :registers ((clock-counter 0)
-	      (ROM-address #*000000000000)
-	      (RAM-command-line 0)
-	      (op-memory)
-	      (index-register (make-array 64 :element-type 'bit))
-	      (carry-bit 0)
-	      (accumulator (make-array 4 :element-type 'bit))
-	      (stack (make-array 3
-				 :initial-contents
-				 (make-array 12 :element-type 'bit)
-				 (make-array 12 :element-type 'bit)
-				 (make-array 12 :element-type 'bit)))
-	      (stack-pointer 0))
-#| ;maybe
-  :cycle ((send-rom-address ((or clock-phase-1 clock-phase-2))
-	     (case clock-counter
-	       ((0 1) (output (sync cm-rom d0 d1 d2 d3)
-			      1 1
-			      (bit 0 ROM-address)
-			      (bit 1 ROM-address)
-			      (bit 2 ROM-address)
-			      (bit 3 ROM-address)))
-	       (2 3) (output (sync cm-rom d0 d1 d2 d3)
-			      1 1
-			      (bit 0 ROM-address)
-			      (bit 1 ROM-address)
-			      (bit 2 ROM-address)
-			      (bit 3 ROM-address)))
-	     (RECEIVE-INSTRUCTION))
-	  (receive-instruction ())
-	  (execute-instruction ()))
-  |#
-  ;;:registers () ;; don't really need internal details (yet)
-  )
-|#
