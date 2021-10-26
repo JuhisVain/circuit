@@ -167,11 +167,12 @@ wire
 		 ;; Get wire's current signal:
 		 (dolist (pin (mapcar #'cdr connected-pins))
 		   (typecase pin
-		     ((or output-pin bus-pin) (cond ((null current-input)
-						     (setf current-input (pin-output pin)))
-						    ((and current-input
-							  (pin-output pin))
-						     (error "2 or more active outputs in wire assembly!"))))))
+		     ((or output-pin bus-pin)
+		      (cond ((null current-input)
+			     (setf current-input (pin-output pin)))
+			    ((and current-input
+				  (pin-output pin))
+			     (error "2 or more active outputs in wire assembly!"))))))
 		 ;; Schedule events:
 		 (dolist (sche-pin connected-pins)
 		   (propagate (cdr sche-pin) current-input (car sche-pin)))))))))
@@ -205,11 +206,6 @@ wire
 
 (defun wake (chip source time)
   (funcall (ic-event-processor chip) chip source time))
-
-(defun register (name chip)
-  (gethash name (ic-registers chip)))
-(defun (setf register) (value name chip)
-  (setf (gethash name (ic-registers chip)) value))
 
 (defstruct ic
   (name)

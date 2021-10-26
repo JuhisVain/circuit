@@ -1,6 +1,5 @@
 (in-package :temp)
 
-;;; signal, and, or & not are external in :CL
 (unless (fboundp 'bitp)
   (declaim (inline bitp))
   (defun bitp (x)
