@@ -1,6 +1,6 @@
 (in-package :temp)
 
-(defmacro define-ic (name &key pins registers event-processor)
+(defmacro define-ic (name &key pins registers event-processor secondary-functions)
   (let* ((alias (or (when (listp name)
 		      (getf (cdr name) :alias))
 		    name))
@@ -21,18 +21,23 @@
 				  ,@(case pin-type (:drive `(:name ',pin-name))))))))
 	     (accessor-pin-list (pin-list)
 	       (loop for (pin-name x) in pin-list
-		     collect `(,pin-name ,(intern (format nil "~a-~a" alias pin-name))))))
+		     collect `(,pin-name ,(intern (format nil "~a-~a" alias pin-name)))))
+	     (accessor-register-list (reg-list)
+	       (loop for (reg-name . rest) in reg-list
+		     collect `(,reg-name ,(intern (format nil "~a-~a" alias reg-name))))))
       
       `(progn
 	 (defstruct (,name (:include ic)
 			   ,@(when conc-name
 			      `((:conc-name ,conc-name)))
 			   (:constructor ,raw-constructor-func))
-	   ,@(struct-pin-list pins))
+	   ,@(struct-pin-list pins)
+	   ,@registers)
 	 
 	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
+	   (store-component-register-list ',name ',(accessor-register-list registers))
 
 	   ,(when event-processor
 	      `(setf (gethash ',name *event-processor-table*)
@@ -48,10 +53,18 @@
 				    (set-register (&rest register-values)
 				      `(progn
 					 ,@(loop for (register value) on register-values by #'cddr
-						 collect `(setf ,register ,value)))))
-			   (with-pins-and-registers ,name chip
-			     (case source ,@event-processor)))))))
-
+						 collect `(setf ,register ,value))))
+				    (execute (op) ; requires op library
+				      `(execute-operation chip ,op trigger)))
+			   
+			     (with-pins-and-registers ,name chip
+			       (labels
+				   ,(when secondary-functions
+				      (loop for (fname lambda-list . body) in secondary-functions
+					    collect `(,fname ,lambda-list
+							     ,@body)))
+				 (case source ,@event-processor))))))))
+	 
 	 (defun ,constructor-func ()
 	   (let ((chip (,raw-constructor-func)))
 	     (with-pins-and-registers ,name chip
