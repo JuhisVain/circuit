@@ -197,7 +197,7 @@ wire
 			     (wake (drive-pin-chip pin)
 				   (drive-pin-name pin)
 				   time))))
-    (input-pin (schedule scheduled-time
+    (pin-with-input (schedule scheduled-time
 			 #'(lambda (time)
 			     (declare (ignore time))
 			     (setf (pin-input pin) value))))))
