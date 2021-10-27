@@ -420,6 +420,9 @@ PIN using ACCESSOR."
 		    when (bitp e) collect e
 		    when (vectorp e)
 		      append (loop for bit across e
+				   collect bit)
+		    when (listp e)
+		      append (loop for bit in e
 				   collect bit))))
     (make-array (length bits) :element-type 'bit :initial-contents bits)))
 
