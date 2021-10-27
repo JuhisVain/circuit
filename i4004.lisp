@@ -41,6 +41,7 @@
 
   :event-processor
   (((clock-phase-1 clock-phase-2)
+    (format t "I4004 clock counter = ~a  TIME: ~a~%" clock-counter time)
     (trigger-clock-counter clock-counter)
     (set-register clock-counter (if (< clock-counter 15)
 				    (1+ clock-counter)
@@ -69,7 +70,8 @@
        (floating d0 d1 d2 d3))
       (7
        (set-register (nth op-memory-pointer op-memory)
-		     (bits d0 d1 d2 d3 #*0000)))
+		     (bits (mapcar #'pin-input (list d0 d1 d2 d3))
+			   #*0000)))
       (8
        (when (equal (nth 0 op-memory)
 		    #*01110000)
@@ -81,7 +83,9 @@
       (9
        (set-register (nth op-memory-pointer op-memory)
 		     (bit-ior (nth op-memory-pointer op-memory)
-			      (bits #*0000 d0 d1 d2 d3))))
+			      (bits #*0000
+				    (mapcar #'pin-input
+					    (list d0 d1 d2 d3))))))
 
       (10 (output cm-rom 1)
        (case RAM-command-line
@@ -101,7 +105,9 @@
 		    cm-ram-1 0
 		    cm-ram-2 0
 		    cm-ram-3 1))))
-      (12 (execute op-memory))
+      (12 (execute (if (zerop op-memory-pointer)
+		       (first op-memory)
+		       (apply #'bits op-memory))))
       (13
        (when (equal (bit-and (first op-memory) #*11110000)
 		    #*01000000)
@@ -110,7 +116,9 @@
 		 cm-ram-2 0
 		 cm-ram-3 0))
        (output cm-rom 1)
-       (execute op-memory))
+       (execute (if (zerop op-memory-pointer)
+		       (first op-memory)
+		       (apply #'bits op-memory))))
       (14 (output sync 0)
        (case RAM-command-line
 	 (0 (output cm-ram-0 1
@@ -129,42 +137,49 @@
 		    cm-ram-1 0
 		    cm-ram-2 0
 		    cm-ram-3 1)))
-       (execute op-memory)))))
-  )
-
-
+       (execute (if (zerop op-memory-pointer)
+		       (first op-memory)
+		       (apply #'bits op-memory))))))))
 
 (setf (gethash 'i4004 *op-code-library*) (make-op-node))
-
 
 '(defoperation i4004 SRC (0 1 0 0 1 R R R)
   (let* ((index (bit-integer R))
 	 (address (subseq index-register index (+ index 8))))
     (add-to-cycle
-     ((12 13) (bitarray-output (d0 d1 d2 d3) (subseq address 0 4)))
-     ((14 15) (bitarray-output (d0 d1 d2 d3) (subseq address 4 8))))))
+     ((12 13) (output d0 (bit address 0)
+		      d1 (bit address 1)
+		      d2 (bit address 2)
+		      d3 (bit address 3)))
+     ((14 15) (output d0 (bit address 4)
+		      d1 (bit address 5)
+		      d2 (bit address 6)
+		      d3 (bit address 7))))))
+
+(defoperation i4004 NOP (0 0 0 0 0 0 0 0)
+  nil)
 
 '(defoperation i4004 JCN (1 0 0 0 C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
-  (case (i4004-op-memory-pointer chip)
+  (case op-memory-pointer
     (0
      (add-to-cycle
-      (15 (setf (i4004-op-memory-pointer chip) 1))))
+      (15 (set-register op-memory-pointer 1))))
     (1
      (add-to-cycle
       (15
        (let ((jump (or (and (bit-zerop C1)
 			    (or
-			     (and (bit-truep C2) (bit-zerop (i4004-accumulator chip)))
-			     (and (bit-truep C3) (not (zerop (i4004-carry-bit chip))))
-			     (and (bit-truep C4) (zerop (pin-input (i4004-test chip))))))
+			     (and (bit-truep C2) (bit-zerop accumulator))
+			     (and (bit-truep C3) (not (zerop carry-bit)))
+			     (and (bit-truep C4) (zerop test))))
 		       (and (bit-truep C1)
 			    (not (or
-				  (and (bit-truep C2) (bit-zerop (i4004-accumulator chip)))
-				  (and (bit-truep C3) (not (zerop (i4004-carry-bit chip))))
-				  (and (bit-truep C4) (zerop (pin-input (i4004-test chip))))))))))
+				  (and (bit-truep C2) (bit-zerop accumulator))
+				  (and (bit-truep C3) (not (zerop carry-bit)))
+				  (and (bit-truep C4) (zerop test))))))))
 	 (when jump
-	   (setf (i4004-rom-address chip)
-		 (bit-ior (bit-and (i4004-rom-address chip)
-				   #*000000001111)
-			  (bits A1 A2 #*0000)))) ;; Unsure bit order!!
-	 (setf (i4004-op-memory-pointer chip) 0)))))))
+	   (set-register rom-address
+			 (bit-ior (bit-and rom-address
+					   #*000000001111)
+				  (bits A1 A2 #*0000)))) ;; Unsure bit order!!
+	 (set-register op-memory-pointer 0)))))))
