@@ -55,7 +55,7 @@
 					 ,@(loop for (register value) on register-values by #'cddr
 						 collect `(setf ,register ,value))))
 				    (execute (op) ; requires op library
-				      `(execute-operation chip ,op trigger)))
+				      `(execute-operation chip ,op trigger time)))
 			   
 			     (with-pins-and-registers ,name chip
 			       (labels
