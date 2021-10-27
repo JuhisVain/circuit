@@ -389,10 +389,11 @@ PIN using ACCESSOR."
      ,@body))
 
 (defun set-output (pin value time)
-  (format t "Setting old ~a output to ~a at pin ~a!~%" (output-pin-output pin) value pin)
-  (when (not (eq value (output-pin-output pin))) ; No updates if no change
-    (format t "Changes!~%")
-    (setf (output-pin-output pin) value)
+  ;;(format t "Setting old ~a output to ~a at pin ~a!~%" (output-pin-output pin) value pin)
+  (when (and (not (eq value (pin-output pin))) ; No updates if no change
+	     (pin-wire pin)) ; a wire is connected?
+    ;;(format t "Changes!~%")
+    (setf (pin-output pin) value)
     (update-wire-state pin
 		       (+ time
 			  (wire-length (pin-wire pin))))))
