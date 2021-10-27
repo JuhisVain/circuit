@@ -336,12 +336,13 @@ PIN using ACCESSOR."
 	     (setf (cdr (assoc bit vars)) (append (cdr (assoc bit vars)) (list index))))
 	    (t (push (list bit index) vars))))))
 
-(defmacro defoperation (chip mnemonic (&rest bits) &body body)
+(defmacro defoperation (chip-type mnemonic (&rest bits) &body body)
   (let ((variables (collect-op-code-variables bits)))
     `(add-op-code
       (make-operation
        :function
-       #'(lambda (op-code chip trigger)
+       #'(lambda (op-code chip trigger time)
+	   (declare (ignorable time))
 	   (let ,(mapcar #'(lambda (op-var-indexes)
 			     `(,(car op-var-indexes)
 			       (make-array ,(length (cdr op-var-indexes))
@@ -350,10 +351,25 @@ PIN using ACCESSOR."
 									 (bit op-code index))
 								     ',(cdr op-var-indexes)))))
 		  variables)
-	     ,@body))
+	     (macrolet ((output (&rest pin-values)
+			  `(progn
+			     ,@(loop for (pin value) on pin-values by #'cddr
+				     collect `(set-output ,pin ,value time))))
+			(floating (&rest pins)
+			  `(progn
+			     ,@(loop for pin in pins
+				     collect `(cut-output ,pin time))))
+			(set-register (&rest register-values)
+			  `(progn
+			     ,@(loop for (register value) on register-values by #'cddr
+				     collect `(setf ,register ,value))))
+			(execute (op) ; requires op library
+			  `(execute-operation chip ,op trigger time)))
+	       (with-pins-and-registers ,chip-type chip
+		 ,@body))))
        :length ,(length bits))
       ',bits
-      (chip-op-lib ',chip))))
+      (chip-op-lib ',chip-type))))
 
 (defmacro add-to-cycle (&rest trigger-case-statements)
   `(case trigger
@@ -362,8 +378,9 @@ PIN using ACCESSOR."
 (defun bit-truep (bit-array)
   (not (bit-zerop bit-array)))
 
-(defun execute-operation (chip op-code trigger)
-  (funcall (chip-op chip op-code) op-code chip trigger))
+(defun execute-operation (chip op-code trigger time)
+  ;;(format t "Chip type ~a~% - Op code ~a~%" (type-of chip) op-code)
+  (funcall (chip-op chip op-code) op-code chip trigger time))
 
 (defmacro with-pins-and-registers (component-type component &body body)
   `(symbol-macrolet ,(loop for (name accessor) in (append (list-pins component-type)
