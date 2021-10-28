@@ -27,16 +27,20 @@
   :event-processor
   (((clock-in1 clock-in2)
     ;;(format t "Dummy clock counter ~a at time ~a~%" clock-counter time)
-    (case clock-counter
-      (6 (format t "   -- Dummy bus outputting zeroes at time ~a!~%" time)
-       (output bus0 0 bus1 0 bus2 0 bus3 0))
-      (9 (format t "   -- Dummy bus will stop outputting at time ~a.~%" time))
-      ((0 10) (floating bus0 bus1 bus2 bus3)))
+    (cond ((or (and (evenp clock-counter)
+	            (rising-p clock-in2))
+	       (and (oddp clock-counter)
+	            (rising-p clock-in1)))
+	   (case clock-counter
+	     (6 (format t "   -- Dummy bus outputting zeroes at time ~a!~%" time)
+	      (output bus0 0 bus1 0 bus2 0 bus3 0))
+	     (9 (format t "   -- Dummy bus will stop outputting at time ~a.~%" time))
+	     ((0 10) (floating bus0 bus1 bus2 bus3)))))
     (setf clock-counter (if (< clock-counter 15)
 			    (1+ clock-counter)
 			    0)))))
 
-(progn
+'(progn
   (defparameter *clock-1* (make-clock))
   (defparameter *clock-2* (make-clock))
   (defparameter *i4004* (make-i4004))
@@ -84,5 +88,4 @@
 	 1 (printer-in *pr3*)))
 
   (set-output (clock-out *clock-2*) 1 0)
-  (set-output (clock-out *clock-1*) 1 50)
-  )
+  (set-output (clock-out *clock-1*) 1 50))

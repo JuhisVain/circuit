@@ -41,8 +41,16 @@
 
   :event-processor
   (((clock-phase-1 clock-phase-2)
-    (format t "I4004 clock counter = ~a  TIME: ~a~%" clock-counter time)
-    (trigger-clock-counter clock-counter)
+    (cond ((or (and (evenp clock-counter)
+	            (rising-p clock-phase-2))
+	       (and (oddp clock-counter)
+	            (rising-p clock-phase-1)))
+	   (trigger-clock-counter clock-counter))
+	  ((or (falling-p clock-phase-1)
+	       (falling-p clock-phase-2))
+	   nil)
+	  (t (error "Clock synchronization error. ~a rising at clock counter ~a."
+		    source clock-counter)))
     (set-register clock-counter (if (< clock-counter 15)
 				    (1+ clock-counter)
 				    0))))
