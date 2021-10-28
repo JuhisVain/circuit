@@ -3,3 +3,4 @@
 (load "ic.lisp")
 (load "circuit.lisp")
 (load "gates.lisp")
+(load "clock.lisp")
