@@ -192,3 +192,14 @@
 					   #*000000001111)
 				  (bits A1 A2 #*0000)))) ;; Unsure bit order!!
 	 (set-register op-memory-pointer 0)))))))
+
+(defoperation i4004 LDM (1 0 1 1 D D D D)
+  (add-to-cycle
+   (12 (set-register accumulator D))))
+
+;; ?? The ASM manual says the op code for LD is 1010 (or 0101 as used here)
+(defoperation i4004 LD (1 1 0 1 R R R R)
+  (add-to-cycle
+   (12 (let ((reg-adr (* 4 (bit-integer R))))
+	 (set-register accumulator
+		     (subseq index-register reg-adr (+ 4 reg-adr)))))))
