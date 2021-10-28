@@ -55,15 +55,21 @@
 					 ,@(loop for (register value) on register-values by #'cddr
 						 collect `(setf ,register ,value))))
 				    (execute (op) ; requires op library
-				      `(execute-operation chip ,op trigger time)))
+				      `(execute-operation chip ,op trigger time))
+				    (rising-p (pin-signal)
+				      `(and (eq source ',pin-signal)
+					    (= ,pin-signal 1)))
+				    (falling-p (pin-signal)
+				      `(and (eq source ',pin-signal)
+					    (zerop ,pin-signal))))
 			   
-			     (with-pins-and-registers ,name chip
-			       (labels
-				   ,(when secondary-functions
-				      (loop for (fname lambda-list . body) in secondary-functions
-					    collect `(,fname ,lambda-list
-							     ,@body)))
-				 (case source ,@event-processor))))))))
+			   (with-pins-and-registers ,name chip
+			     (labels
+				 ,(when secondary-functions
+				    (loop for (fname lambda-list . body) in secondary-functions
+					  collect `(,fname ,lambda-list
+							   ,@body)))
+			       (case source ,@event-processor))))))))
 	 
 	 (defun ,constructor-func ()
 	   (let ((chip (,raw-constructor-func)))
