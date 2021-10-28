@@ -143,7 +143,7 @@
 
 (setf (gethash 'i4004 *op-code-library*) (make-op-node))
 
-'(defoperation i4004 SRC (0 1 0 0 1 R R R)
+(defoperation i4004 SRC (0 1 0 0 1 R R R)
   (let* ((index (bit-integer R))
 	 (address (subseq index-register index (+ index 8))))
     (add-to-cycle
@@ -159,7 +159,7 @@
 (defoperation i4004 NOP (0 0 0 0 0 0 0 0)
   nil)
 
-'(defoperation i4004 JCN (1 0 0 0 C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
+(defoperation i4004 JCN (1 0 0 0 C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
   (case op-memory-pointer
     (0
      (add-to-cycle
