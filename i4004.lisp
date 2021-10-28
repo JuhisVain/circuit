@@ -167,7 +167,8 @@
 (defoperation i4004 NOP (0 0 0 0 0 0 0 0)
   nil)
 
-(defoperation i4004 JCN (1 0 0 0 C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
+;;;                      d0 d1 d2 d3,d0 d1 d2 d3/d0 d1 d2 d3,d0 d1 d2 d3
+(defoperation i4004 JCN (1  0  0  0  C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
   (case op-memory-pointer
     (0
      (add-to-cycle
