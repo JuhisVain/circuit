@@ -58,10 +58,10 @@
 				      `(execute-operation chip ,op trigger time))
 				    (rising-p (pin-signal)
 				      `(and (eq source ',pin-signal)
-					    (= ,pin-signal 1)))
+					    (= (pin-input ,pin-signal) 1)))
 				    (falling-p (pin-signal)
 				      `(and (eq source ',pin-signal)
-					    (zerop ,pin-signal))))
+					    (zerop (pin-input ,pin-signal)))))
 			   
 			   (with-pins-and-registers ,name chip
 			     (labels
