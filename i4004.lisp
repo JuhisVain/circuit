@@ -22,7 +22,7 @@
   :registers
   ((clock-counter 0 :type (integer 0 15))
    (ROM-address #*000000000000 :type bit-vector)
-   (RAM-command-line 0 :type (integer 0 3))
+   (RAM-command-line #*000 :type bit-vector)
    (op-memory (list #*00000000 #*00000000) :type list) ; one-byte-op & two-byte-op's vars
    (op-memory-pointer 0 :type (integer 0 1)) ; 0 or 1, index of op-memory to fill, usually 0
    (index-register (make-array 64 :element-type 'bit)
