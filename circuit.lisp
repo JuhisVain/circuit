@@ -355,6 +355,13 @@ PIN using ACCESSOR."
 			  `(progn
 			     ,@(loop for (pin value) on pin-values by #'cddr
 				     collect `(set-output ,pin ,value time))))
+			(bus-output (bit-array &rest bus-pins)
+			  (let ((bits (gensym)))
+			    `(let ((,bits ,bit-array))
+			       ,@(loop for pin in bus-pins
+				       for index from 0
+				       collect `(set-output
+						 ,pin (bit ,bits ,index) time)))))
 			(floating (&rest pins)
 			  `(progn
 			     ,@(loop for pin in pins
