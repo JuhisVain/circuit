@@ -96,58 +96,28 @@
 					    (list d0 d1 d2 d3))))))
 
       (10 (output cm-rom 1)
-       (case RAM-command-line
-	 (0 (output cm-ram-0 1
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 0))
-	 (1 (output cm-ram-0 0
-		    cm-ram-1 1
-		    cm-ram-2 0
-		    cm-ram-3 0))
-	 (2 (output cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 1
-		    cm-ram-3 0))
-	 (3 (output cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 1))))
+       (bus-output RAM-command-line
+		   cm-ram-0 cm-ram-1 cm-ram-2 cm-ram-3))
       (12 (execute (if (zerop op-memory-pointer)
 		       (first op-memory)
 		       (apply #'bits op-memory))))
       (13
        (when (equal (bit-and (first op-memory) #*11110000)
-		    #*01000000)
+		    #*01000000) ;SRC?
 	 (output cm-ram-0 0
 		 cm-ram-1 0
 		 cm-ram-2 0
 		 cm-ram-3 0))
        (output cm-rom 1)
        (execute (if (zerop op-memory-pointer)
-		       (first op-memory)
-		       (apply #'bits op-memory))))
+		    (first op-memory)
+		    (apply #'bits op-memory))))
       (14 (output sync 0)
-       (case RAM-command-line
-	 (0 (output cm-ram-0 1
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 0))
-	 (1 (output cm-ram-0 0
-		    cm-ram-1 1
-		    cm-ram-2 0
-		    cm-ram-3 0))
-	 (2 (output cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 1
-		    cm-ram-3 0))
-	 (3 (output cm-ram-0 0
-		    cm-ram-1 0
-		    cm-ram-2 0
-		    cm-ram-3 1)))
+       (bus-output RAM-command-line
+		   cm-ram-0 cm-ram-1 cm-ram-2 cm-ram-3)
        (execute (if (zerop op-memory-pointer)
-		       (first op-memory)
-		       (apply #'bits op-memory))))))))
+		    (first op-memory)
+		    (apply #'bits op-memory))))))))
 
 (setf (gethash 'i4004 *op-code-library*) (make-op-node))
 
@@ -197,12 +167,29 @@
   (add-to-cycle
    (12 (set-register accumulator D))))
 
-;; ?? The ASM manual says the op code for LD is 1010 (or 0101 as used here)
-(defoperation i4004 LD (1 1 0 1 R R R R)
+(defoperation i4004 LD (0 1 0 1 R R R R)
   (add-to-cycle
    (12 (let ((reg-adr (* 4 (bit-integer R))))
 	 (set-register accumulator
-		     (subseq index-register reg-adr (+ 4 reg-adr)))))))
+		       (subseq index-register reg-adr (+ 4 reg-adr)))))))
+
+(defoperation i4004 XCH (1 1 0 1 R R R R)
+  (add-to-cycle
+   (12 (let* ((reg-adr (* 4 (bit-integer R)))
+	      ;; Standard says subseq is copy unless setfing
+	      (ir-contents (subseq index-register reg-adr (+ 4 reg-adr))))
+	 (setf (subseq index-register reg-adr (+ 4 reg-adr)) accumulator)
+	 (set-register accumulator ir-contents)))))
+
+(defoperation i4004 DCL (1 1 1 1 1 0 1 1)
+  (add-to-cycle
+   (12 (set-register RAM-command-line
+		     (subseq (bit-and accumulator #*1110) 0 3)))))
+
+(defoperation i4004 WRM (0 1 1 1 0 0 0 0)
+  (add-to-cycle
+   (12 (bus-output accumulator d0 d1 d2 d3))
+   (15 (floating d0 d1 d2 d3)))) ;; too early?
 
 
 ;; A testing program
