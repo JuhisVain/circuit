@@ -203,3 +203,34 @@
    (12 (let ((reg-adr (* 4 (bit-integer R))))
 	 (set-register accumulator
 		     (subseq index-register reg-adr (+ 4 reg-adr)))))))
+
+
+;; A testing program
+'((LDM 0) ;
+  (XCH 0) ; 0 @ RAM pointer
+  (LDM 0) ;
+  (XCH 1) ; RAM bank designator
+  (LD 1)  ;
+  (DCL)   ; set RAM bank command line to 0
+  (LDM 0) ; 0 @ accumulator
+  (SRC 0) ; target RAM 0
+  (WRM)   ; write 0 to RAM 0
+  
+  :incrementer
+  (IAC)   ; increment acc
+  (JCN (:zero) :ram-bank-inc)
+  (INC 0) ; increment RAM pointer
+  (SRC 0) ; target new RAM address
+  (WRM)   ; write
+  
+  :ram-bank-inc
+  (INC 1) ; increment RAM bank line
+  (LD 1)
+  (JCN (:zero) :end) ; if RAM bank 0, start doing nothing
+  (LDM 0)
+  (XCH 0) ; Point to RAM address 0
+  (JUN :incrementer)
+
+  :end
+  (NOP)
+  (JUN :end))
