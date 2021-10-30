@@ -191,6 +191,30 @@
    (12 (bus-output accumulator d0 d1 d2 d3))
    (15 (floating d0 d1 d2 d3)))) ;; too early?
 
+(defoperation i4004 IAC (1 1 1 1 0 1 0 0)
+  (add-to-cycle
+   (12 (multiple-value-bind (sum carry)
+	   (bit-1+ accumulator)
+	 (setf accumulator sum
+	       carry-bit carry)))))
+
+(defoperation i4004 INC (0 1 1 0 R R R R)
+  (add-to-cycle
+   (12 (let* ((reg-adr (* 4 (bit-integer R)))
+	      (ir-contents (subseq index-register reg-adr (+ 4 reg-adr))))
+	 (setf (subseq index-register reg-adr (+ 4 reg-adr))
+	       (bit-1+ ir-contents))))))
+
+(defoperation i4004 JUN (0 0 1 0 A3 A3 A3 A3 A2 A2 A2 A2 A1 A1 A1 A1)
+  (case op-memory-pointer
+    (0
+     (add-to-cycle
+      (15 (set-register op-memory-pointer 1))))
+    (1
+     (add-to-cycle
+      (12 (setf ROM-address (bits A1 A2 A3))
+	  (set-register op-memory-pointer 0))))))
+
 
 ;; A testing program
 '((LDM 0) ;
