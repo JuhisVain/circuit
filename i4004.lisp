@@ -247,3 +247,52 @@
   :end
   (NOP)
   (JUN :end))
+
+(define-ic i4001
+  :pins
+  ((d0 :bus)
+   (d1 :bus)
+   (d2 :bus)
+   (d3 :bus)
+   ;;(v-ss)
+   (clock-phase-1 :drive)
+   (clock-phase-2 :drive)
+   (sync :input)
+   (i/o0 :bus)
+   (i/o1 :bus)
+   (i/o2 :bus)
+   (i/o3 :bus)
+   ;;(v-dd)
+   (cm :input)
+   (cl :input)
+   (reset :input))
+  :registers
+  ((id #*0000 :type bit-vector)
+   (counter 0 :type (integer 0 15))
+   (current-address #*00000000 :type bit-vector)
+   (chip-selection #*0000 :type bit-vector)
+   (ROM (make-array 256 :element-type 'bit-vector :initial-element #*00000000)))
+  :event-processor
+  (((clock-phase-1 clock-phase-2)
+    (when (= (pin-input sync) 1)
+      (setf counter 0))
+    (case counter
+      (1 (setf current-address (bits d0 d1 d2 d3 #*00000000)))
+      (3 (setf current-address
+	       (bit-ior current-address (bits #*0000 d0 d1 d2 d3 #*0000))))
+      (5 (setf chip-selection (bits d0 d1 d2 d3)))
+      (6 (when (bit-= id chip-selection)
+	   (bus-output (subseq (svref ROM (bit-integer current-address))
+			       0 4)
+		       d0 d1 d2 d3)))
+      (8 (when (bit-= id chip-selection)
+	   (bus-output (subseq (svref ROM (bit-integer current-address))
+			       4)
+		       d0 d1 d2 d3)))
+      (10 (when (bit-= id chip-selection)
+	    (floating d0 d1 d2 d3))))
+    (if (= counter 15)
+	(progn
+	  (format t "ROM phase counter reached 15! This should not happen!~%")
+	  (setf counter 0))
+	(incf counter)))))
