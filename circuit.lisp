@@ -342,7 +342,7 @@ PIN using ACCESSOR."
       (make-operation
        :function
        #'(lambda (op-code chip trigger time)
-	   (declare (ignorable time))
+	   (declare (ignorable op-code chip trigger time))
 	   (let ,(mapcar #'(lambda (op-var-indexes)
 			     `(,(car op-var-indexes)
 			       (make-array ,(length (cdr op-var-indexes))
