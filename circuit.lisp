@@ -477,6 +477,10 @@ PIN using ACCESSOR."
 (defun bit-plusp (bit-array)
   (= 0 (bit-sign bit-array)))
 
+(defun bit-= (a b)
+  (declare (bit-vector a b))
+  (equal a b))
+
 (defun signed-bit-integer (bit-array)
   (cond ((bit-plusp bit-array)
 	 (bit-integer bit-array))
