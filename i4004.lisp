@@ -199,6 +199,7 @@
   (XCH 1) ; RAM bank designator
   (LD 1)  ;
   (DCL)   ; set RAM bank command line to 0
+  :start
   (LDM 0) ; 0 @ accumulator
   (SRC 0) ; target RAM 0
   (WRM)   ; write 0 to RAM 0
@@ -209,6 +210,7 @@
   (INC 0) ; increment RAM pointer
   (SRC 0) ; target new RAM address
   (WRM)   ; write
+  (JUN :incrementer)
   
   :ram-bank-inc
   (INC 1) ; increment RAM bank line
@@ -216,7 +218,7 @@
   (JCN (:zero) :end) ; if RAM bank 0, start doing nothing
   (LDM 0)
   (XCH 0) ; Point to RAM address 0
-  (JUN :incrementer)
+  (JUN :start)
 
   :end
   (NOP)
