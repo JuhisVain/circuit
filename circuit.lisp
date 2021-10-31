@@ -273,7 +273,8 @@ PIN using ACCESSOR."
 			   do (return rest)))))
     (labels ((add-op-code-without-vars (op-code-list op-tree)
 	       (when (op-node-operation op-tree)
-		 (error "Attempting to add new operation where one already exists!"))
+		 (warn "Adding new operation ~a where one already exists!"
+		       op-code-listing))
 	       (let ((bit (car op-code-list)))
 		 (cond ((null bit) (setf (op-node-operation op-tree) operation))
 		       (t
