@@ -243,12 +243,19 @@ PIN using ACCESSOR."
 	   chip))
 
 (defvar *op-code-library* (make-hash-table :test 'eq))
+(defvar *op-mnemonic-library* (make-hash-table :test 'eq))
 
 (defun chip-op-lib (chip)
   (gethash (typecase chip
 	     (symbol chip)
 	     (t (type-of chip)))
 	   *op-code-library*))
+
+(defun list-op-mnemonics (chip)
+  (gethash (typecase chip
+	     (symbol chip)
+	     (t (type-of chip)))
+	   *op-mnemonic-library*))
 
 (defstruct operation
   (function)
@@ -336,47 +343,62 @@ PIN using ACCESSOR."
 	     (setf (cdr (assoc bit vars)) (append (cdr (assoc bit vars)) (list index))))
 	    (t (push (list bit index) vars))))))
 
+(defun add-mnemonic-args (chip-type mnemonic bits)
+  "Stores mnemonic arg lists as (MNEMONIC BINARY-CODE (ARG-NAME ARG-BIT-LENGTH)*)"
+  (let ((mnem-lambda-form (or (assoc mnemonic
+				     (gethash chip-type *op-mnemonic-library*))
+			      (car (push (list mnemonic)
+					 (gethash chip-type *op-mnemonic-library*))))))
+    (setf (cdr mnem-lambda-form)
+	  (list* (bits (loop for b in bits when (bitp b) collect b))
+		 (mapcar #'(lambda (arg)
+			     (list (car arg) (length (cdr arg))))
+			 (sort (collect-op-code-variables bits)
+			       #'< :key #'cadr))))))
+
 (defmacro defoperation (chip-type mnemonic (&rest bits) &body body)
   (let ((variables (collect-op-code-variables bits)))
-    `(add-op-code
-      (make-operation
-       :function
-       #'(lambda (op-code chip trigger time)
-	   (declare (ignorable op-code chip trigger time))
-	   (let ,(mapcar #'(lambda (op-var-indexes)
-			     `(,(car op-var-indexes)
-			       (make-array ,(length (cdr op-var-indexes))
-					   :element-type 'bit
-					   :initial-contents (mapcar #'(lambda (index)
-									 (bit op-code index))
-								     ',(cdr op-var-indexes)))))
-		  variables)
-	     (macrolet ((output (&rest pin-values)
-			  `(progn
-			     ,@(loop for (pin value) on pin-values by #'cddr
-				     collect `(set-output ,pin ,value time))))
-			(bus-output (bit-array &rest bus-pins)
-			  (let ((bits (gensym)))
-			    `(let ((,bits ,bit-array))
-			       ,@(loop for pin in bus-pins
-				       for index from 0
-				       collect `(set-output
-						 ,pin (bit ,bits ,index) time)))))
-			(floating (&rest pins)
-			  `(progn
-			     ,@(loop for pin in pins
-				     collect `(cut-output ,pin time))))
-			(set-register (&rest register-values)
-			  `(progn
-			     ,@(loop for (register value) on register-values by #'cddr
-				     collect `(setf ,register ,value))))
-			(execute (op) ; requires op library
-			  `(execute-operation chip ,op trigger time)))
-	       (with-pins-and-registers ,chip-type chip
-		 ,@body))))
-       :length ,(length bits))
-      ',bits
-      (chip-op-lib ',chip-type))))
+    `(progn
+       (add-mnemonic-args ',chip-type ',mnemonic ',bits)
+       (add-op-code
+	(make-operation
+	 :function
+	 #'(lambda (op-code chip trigger time)
+	     (declare (ignorable op-code chip trigger time))
+	     (let ,(mapcar #'(lambda (op-var-indexes)
+			       `(,(car op-var-indexes)
+				 (make-array ,(length (cdr op-var-indexes))
+					     :element-type 'bit
+					     :initial-contents (mapcar #'(lambda (index)
+									   (bit op-code index))
+								       ',(cdr op-var-indexes)))))
+		    variables)
+	       (macrolet ((output (&rest pin-values)
+			    `(progn
+			       ,@(loop for (pin value) on pin-values by #'cddr
+				       collect `(set-output ,pin ,value time))))
+			  (bus-output (bit-array &rest bus-pins)
+			    (let ((bits (gensym)))
+			      `(let ((,bits ,bit-array))
+				 ,@(loop for pin in bus-pins
+					 for index from 0
+					 collect `(set-output
+						   ,pin (bit ,bits ,index) time)))))
+			  (floating (&rest pins)
+			    `(progn
+			       ,@(loop for pin in pins
+				       collect `(cut-output ,pin time))))
+			  (set-register (&rest register-values)
+			    `(progn
+			       ,@(loop for (register value) on register-values by #'cddr
+				       collect `(setf ,register ,value))))
+			  (execute (op) ; requires op library
+			    `(execute-operation chip ,op trigger time)))
+		 (with-pins-and-registers ,chip-type chip
+		   ,@body))))
+	 :length ,(length bits))
+	',bits
+	(chip-op-lib ',chip-type)))))
 
 (defmacro add-to-cycle (&rest trigger-case-statements)
   `(case trigger
