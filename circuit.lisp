@@ -504,6 +504,20 @@ PIN using ACCESSOR."
   (declare (bit-vector a b))
   (equal a b))
 
+(defun uinteger-bits (integer &optional (minimum-length 1))
+  (let ((bits nil))
+    (loop while (plusp integer)
+	  for i from 1
+	  do (multiple-value-bind (quotient remainder)
+		 (floor integer 2)
+	       (setf integer quotient)
+	       (push remainder bits))
+	  finally (if (< i minimum-length)
+		      (setf bits (append (make-list (- minimum-length i)
+						    :initial-element 0)
+					 bits))))
+    (reverse (bits bits))))
+
 (defun signed-bit-integer (bit-array)
   (cond ((bit-plusp bit-array)
 	 (bit-integer bit-array))
