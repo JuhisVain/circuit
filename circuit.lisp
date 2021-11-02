@@ -5,13 +5,6 @@
 
 (defvar *event-queue* (serapeum:make-heap :key #'car :test #'<))
 
-#|
-(defstruct clock
-  counter
-  interval
-  (value nil)
-  (out :type wire))
-|#
 (defstruct (wire (:print-object print-wire))
   (length)
   ;; connections should hold 2 pins. Either or both can be exchanged for any amount of wires
@@ -77,35 +70,6 @@
     (output-pin (setf (output-pin-output pin) value))
     (bus-pin (setf (bus-pin-output pin) value))
     (t (error "Pin ~a does not have output slot to set!" pin))))
-
-;;A sequential definition might be easier:
-'(wire
-  ((i4004-d0 cpu)
-   5
-   (:fork rom0-fork)
-   2
-   (:fork rambank12-fork)
-   4
-   (:fork rom1-fork)
-   8
-   (:fork rambank34-fork)
-   ;;...etc
-   )
-  ;;branching
-  (rom0-fork
-   2
-   (i4001-d0 rom0))
-  (rambank12fork
-   6
-   (:fork rams0010-fork)
-   6
-   (:fork rams0111-fork)
-   6
-   (:fork rams0212-fork)
-   6
-   (:fork rams0313-fork)
-   1
-   (i4002-d0 ram03)))
 
 (defmacro wire (main &rest branching)
   "Convenience macro to form a wire sequentially starting from a pin and moving
