@@ -1,6 +1,61 @@
 (in-package :temp)
 
-(defmacro define-ic (name &key pins registers event-processor secondary-functions)
+(defstruct ic
+  (name)
+  (event-processor))
+
+(defstruct (cpu (:include ic))
+  (word-size 8 :type (unsigned-byte 16))
+  (byte-size 8 :type (unsigned-byte 16))
+  (endianness :little-endian :type (member :little-endian :big-endian))
+  (op-lib))
+
+(defvar *component-pin-lib* (make-hash-table :test 'eq))
+(defvar *component-register-lib* (make-hash-table :test 'eq))
+(defun store-component-pin-list (component-type pin-data)
+  (setf (gethash component-type *component-pin-lib*) pin-data))
+(defun list-pins (component-type)
+  (gethash component-type *component-pin-lib*))
+
+(defun store-component-register-list (component-type register-data)
+  (setf (gethash component-type *component-register-lib*) register-data))
+(defun list-registers (component-type)
+  (gethash component-type *component-register-lib*))
+
+(defvar *chip-pinout-lib* (make-hash-table :test 'eq))
+
+(defun record-chip-pin (chip-type pin-name accessor)
+  "Stores and associates PIN-NAME with CHIP-TYPE to be accessed with function
+PIN using ACCESSOR."
+  (declare (symbol chip-type pin-name)
+	   ((or symbol function) accessor))
+  (let ((pin-table (or (gethash chip-type *chip-pinout-lib*)
+		       (setf (gethash chip-type *chip-pinout-lib*)
+			     (make-hash-table :test 'eq)))))
+    (setf (gethash pin-name pin-table)
+	  accessor)))
+
+(defun pin (chip pin-name)
+  (funcall (gethash pin-name (gethash (type-of chip) *chip-pinout-lib*))
+	   chip))
+
+
+(defvar *op-code-library* (make-hash-table :test 'eq))
+(defvar *op-mnemonic-library* (make-hash-table :test 'eq))
+
+(defun chip-op-lib (chip)
+  (gethash (typecase chip
+	     (symbol chip)
+	     (t (type-of chip)))
+	   *op-code-library*))
+
+(defun list-op-mnemonics (chip)
+  (gethash (typecase chip
+	     (symbol chip)
+	     (t (type-of chip)))
+	   *op-mnemonic-library*))
+
+(defmacro define-ic (name &key cpu pins registers event-processor secondary-functions)
   (let* ((alias (or (when (listp name)
 		      (getf (cdr name) :alias))
 		    name))
@@ -27,7 +82,7 @@
 		     collect `(,reg-name ,(intern (format nil "~a-~a" alias reg-name))))))
       
       `(progn
-	 (defstruct (,name (:include ic)
+	 (defstruct (,name (:include ,(if cpu 'cpu 'ic))
 			   ,@(when conc-name
 			      `((:conc-name ,conc-name)))
 			   (:constructor ,raw-constructor-func))
@@ -36,6 +91,7 @@
 	 
 	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
+	   (setf (gethash ',name *op-code-library*) (make-op-node))
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
 	   (store-component-register-list ',name ',(accessor-register-list registers))
 
@@ -80,6 +136,13 @@
 	 
 	 (defun ,constructor-func ()
 	   (let ((chip (,raw-constructor-func)))
+	     ,@(when cpu
+		 `((setf (cpu-word-size chip) ,(getf cpu :word-size)
+			(cpu-byte-size chip) ,(or (getf cpu :byte-size)
+						  (getf cpu :word-size))
+			(cpu-endianness chip) ,(or (getf cpu :endianness)
+						   :little-endian)
+			(cpu-op-lib chip) (chip-op-lib chip))))
 	     (with-pins-and-registers ,name chip
 	       (setf
 		,@(loop for (pin pin-type) in pins

@@ -1,6 +1,7 @@
 (in-package :temp)
 
 (define-ic i4004
+  :cpu (:word-size 4 :byte-size 8 :endianness :big-endian)
   :pins
   ((d0 :bus)
    (d1 :bus)  
@@ -72,7 +73,8 @@
 		 d1 (bit ROM-address 9)
 		 d2 (bit ROM-address 10)
 		 d3 (bit ROM-address 11)))
-      (5 (output cm-rom 0))
+      (5 (output cm-rom 0)
+	 (set-register ROM-address (bit-1+ ROM-address)))
       (6
        (output cm-rom 1)
        (floating d0 d1 d2 d3))
@@ -119,7 +121,7 @@
 		    (first op-memory)
 		    (apply #'bits op-memory))))))))
 
-(setf (gethash 'i4004 *op-code-library*) (make-op-node))
+
 
 (defoperation i4004 SRC (0 1 0 0 1 R R R)
   (let* ((index (bit-integer R))
@@ -137,6 +139,7 @@
 (defoperation i4004 NOP (0 0 0 0 0 0 0 0)
   nil)
 
+;; Yes, C4 is output by d0...
 ;;;                      d0 d1 d2 d3,d0 d1 d2 d3/d0 d1 d2 d3,d0 d1 d2 d3
 (defoperation i4004 JCN (1  0  0  0  C4 C3 C2 C1 A2 A2 A2 A2 A1 A1 A1 A1)
   (case op-memory-pointer
@@ -215,6 +218,38 @@
       (12 (setf ROM-address (bits A1 A2 A3))
 	  (set-register op-memory-pointer 0))))))
 
+;; i4004 is big endian as far as I can tell
+;; and bit-level wise bit 0 is least significant
+'(defun instruction-to-binary (instruction spec word-size endianness)
+  (let* ((given-args (cdr instruction))
+	 (required-args (cdr spec))
+	 (given-arg-count (length given-args))
+	 (required-arg-count (length required-args))
+	 (binary-listing))
+    
+    ))
+
+'(defmacro asm (cpu-type word-size &body code)
+  (let ((ops (list-op-mnemonics cpu-type))
+	(label-table (make-hash-table :test 'eq))
+	(binary ()))
+    
+    (loop for e in code
+	  for index from 0
+	  when (keywordp e)
+	    do (setf (gethash e label-table) index)
+	       (decf index))
+    
+    (loop for instruction in code
+	  when (listp instruction)
+	    do (incf index)
+	       (let ((arg-form (cdr (assoc (car instruction) ops))))
+		 (append binary (instruction-to-binary
+				 instruction arg-form word-size))
+		 ))))
+
+ ; (bits #*1011 #*0000)
+  ;(JCN 1 0 0 0 :ram-bank-inc)
 
 ;; A testing program
 '((LDM 0) ;
@@ -230,7 +265,7 @@
   
   :incrementer
   (IAC)   ; increment acc
-  (JCN (:zero) :ram-bank-inc)
+  (JCN #*1000 :ram-bank-inc)
   (INC 0) ; increment RAM pointer
   (SRC 0) ; target new RAM address
   (WRM)   ; write
@@ -239,7 +274,7 @@
   :ram-bank-inc
   (INC 1) ; increment RAM bank line
   (LD 1)
-  (JCN (:zero) :end) ; if RAM bank 0, start doing nothing
+  (JCN #*1000 :end) ; if RAM bank 0, start doing nothing
   (LDM 0)
   (XCH 0) ; Point to RAM address 0
   (JUN :start)

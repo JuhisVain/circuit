@@ -169,66 +169,22 @@ wire
 (defun wake (chip source time)
   (funcall (ic-event-processor chip) chip source time))
 
-(defstruct ic
-  (name)
-  (event-processor))
-
 (defvar *event-processor-table* (make-hash-table :test 'eq))
 (defun event-processor (component)
   (gethash component *event-processor-table*))
-
-(defvar *component-pin-lib* (make-hash-table :test 'eq))
-(defvar *component-register-lib* (make-hash-table :test 'eq))
-(defun store-component-pin-list (component-type pin-data)
-  (setf (gethash component-type *component-pin-lib*) pin-data))
-(defun list-pins (component-type)
-  (gethash component-type *component-pin-lib*))
-
-(defun store-component-register-list (component-type register-data)
-  (setf (gethash component-type *component-register-lib*) register-data))
-(defun list-registers (component-type)
-  (gethash component-type *component-register-lib*))
-
-(defvar *chip-pinout-lib* (make-hash-table :test 'eq))
-
-(defun record-chip-pin (chip-type pin-name accessor)
-  "Stores and associates PIN-NAME with CHIP-TYPE to be accessed with function
-PIN using ACCESSOR."
-  (declare (symbol chip-type pin-name)
-	   ((or symbol function) accessor))
-  (let ((pin-table (or (gethash chip-type *chip-pinout-lib*)
-		       (setf (gethash chip-type *chip-pinout-lib*)
-			     (make-hash-table :test 'eq)))))
-    (setf (gethash pin-name pin-table)
-	  accessor)))
-
-(defun pin (chip pin-name)
-  (funcall (gethash pin-name (gethash (type-of chip) *chip-pinout-lib*))
-	   chip))
-
-(defvar *op-code-library* (make-hash-table :test 'eq))
-(defvar *op-mnemonic-library* (make-hash-table :test 'eq))
-
-(defun chip-op-lib (chip)
-  (gethash (typecase chip
-	     (symbol chip)
-	     (t (type-of chip)))
-	   *op-code-library*))
-
-(defun list-op-mnemonics (chip)
-  (gethash (typecase chip
-	     (symbol chip)
-	     (t (type-of chip)))
-	   *op-mnemonic-library*))
 
 (defstruct operation
   (function)
   (length)) ;; length of op-code in bits??
 
-(defstruct op-node
+(defstruct (op-node (:print-object print-op-node))
   (operation)
   (zero)
   (one))
+
+(defun print-op-node (op-node stream)
+  (print-unreadable-object (op-node stream :type t)
+    (format stream "~a nodes in tree" (count-nodes op-node))))
 
 (defun add-op-code (operation op-code-listing op-tree)
   (let ((op-code-listing ;; Cull trailing var symbols
