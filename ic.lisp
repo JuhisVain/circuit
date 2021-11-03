@@ -138,11 +138,11 @@ PIN using ACCESSOR."
 	   (let ((chip (,raw-constructor-func)))
 	     ,@(when cpu
 		 `((setf (cpu-word-size chip) ,(getf cpu :word-size)
-			(cpu-byte-size chip) ,(or (getf cpu :byte-size)
-						  (getf cpu :word-size))
-			(cpu-endianness chip) ,(or (getf cpu :endianness)
-						   :little-endian)
-			(cpu-op-lib chip) (chip-op-lib chip))))
+			 (cpu-byte-size chip) ,(or (getf cpu :byte-size)
+						   (getf cpu :word-size))
+			 (cpu-endianness chip) ,(or (getf cpu :endianness)
+						    :little-endian)
+			 (cpu-op-lib chip) (chip-op-lib chip))))
 	     (with-pins-and-registers ,name chip
 	       (setf
 		,@(loop for (pin pin-type) in pins

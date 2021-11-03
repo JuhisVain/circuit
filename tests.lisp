@@ -35,10 +35,10 @@
 	     (6 (format t "   -- Dummy bus outputting zeroes at time ~a!~%" time)
 	      (output bus0 0 bus1 0 bus2 0 bus3 0))
 	     (9 (format t "   -- Dummy bus will stop outputting at time ~a.~%" time))
-	     ((0 10) (floating bus0 bus1 bus2 bus3)))))
-    (setf clock-counter (if (< clock-counter 15)
-			    (1+ clock-counter)
-			    0)))))
+	     ((0 10) (floating bus0 bus1 bus2 bus3)))
+	   (setf clock-counter (if (< clock-counter 15)
+				   (1+ clock-counter)
+				   0)))))))
 
 '(progn
   (defparameter *clock-1* (make-clock))

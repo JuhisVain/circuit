@@ -23,7 +23,7 @@
   :registers
   ((clock-counter 0 :type (integer 0 15))
    (ROM-address #*000000000000 :type bit-vector)
-   (RAM-command-line #*000 :type bit-vector)
+   (RAM-command-line #*0000 :type bit-vector)
    (op-memory (list #*00000000 #*00000000) :type list) ; one-byte-op & two-byte-op's vars
    (op-memory-pointer 0 :type (integer 0 1)) ; 0 or 1, index of op-memory to fill, usually 0
    (index-register (make-array 64 :element-type 'bit)
@@ -46,15 +46,15 @@
 	            (rising-p clock-phase-2))
 	       (and (oddp clock-counter)
 	            (rising-p clock-phase-1)))
-	   (trigger-clock-counter clock-counter))
+	   (trigger-clock-counter clock-counter)
+	   (set-register clock-counter (if (< clock-counter 15)
+					   (1+ clock-counter)
+					   0)))
 	  ((or (falling-p clock-phase-1)
 	       (falling-p clock-phase-2))
 	   nil)
 	  (t (error "Clock synchronization error. ~a rising at clock counter ~a."
-		    source clock-counter)))
-    (set-register clock-counter (if (< clock-counter 15)
-				    (1+ clock-counter)
-				    0))))
+		   source clock-counter)))))
 
   :secondary-functions
   ((trigger-clock-counter (trigger)
