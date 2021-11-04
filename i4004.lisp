@@ -220,36 +220,79 @@
 
 ;; i4004 is big endian as far as I can tell
 ;; and bit-level wise bit 0 is least significant
-'(defun instruction-to-binary (instruction spec word-size endianness)
-  (let* ((given-args (cdr instruction))
-	 (required-args (cdr spec))
-	 (given-arg-count (length given-args))
-	 (required-arg-count (length required-args))
-	 (binary-listing))
-    
-    ))
 
-'(defmacro asm (cpu-type word-size &body code)
-  (let ((ops (list-op-mnemonics cpu-type))
-	(label-table (make-hash-table :test 'eq))
-	(binary ()))
-    
-    (loop for e in code
-	  for index from 0
-	  when (keywordp e)
-	    do (setf (gethash e label-table) index)
-	       (decf index))
-    
-    (loop for instruction in code
-	  when (listp instruction)
-	    do (incf index)
-	       (let ((arg-form (cdr (assoc (car instruction) ops))))
-		 (append binary (instruction-to-binary
-				 instruction arg-form word-size))
-		 ))))
+(defun i4004-op-length (mnemonic)
+  "Return bit width of operation associated with symbol MNEMONIC."
+  (loop for part in (cdr (assoc mnemonic (list-op-mnemonics 'i4004)))
+	sum (etypecase part
+	      (bit-vector (length part))
+	      (list (cadr part)))))
 
- ; (bits #*1011 #*0000)
-  ;(JCN 1 0 0 0 :ram-bank-inc)
+(defun form-bytes (bit-width bit-arrays)
+  (let ((long-bits (apply #'concatenate 'bit-vector bit-arrays)))
+    (loop for i from 0 to (- (length long-bits) bit-width) by bit-width
+	  collect (subseq long-bits i (+ i bit-width)))))
+
+(defun i4004-op-binary (op)
+  ;; GOOD ENOUGH
+  (do* ((spec-head (cdr (assoc (car op) (list-op-mnemonics 'i4004))))
+	(parameter (car spec-head) (car spec-head))
+	(arg-head (cdr op))
+	(argument (car arg-head) (car arg-head))
+	(length-sum 0)
+	(binary))
+       ((null spec-head) (reverse binary))
+    (etypecase parameter
+      (bit-vector
+       (push parameter binary)
+       (incf length-sum (length parameter))
+       (setf spec-head (cdr spec-head)))
+      (list
+       (let ((arg-length (cadr parameter)))
+	 (case arg-length
+	   (1 ; flag array incoming
+	    (let ((flags-length (loop for x on spec-head
+				      counting (or (= 1 (cadr (car x)))
+						   (return (progn
+							     (setf spec-head x)
+							     sum)))
+					into sum)))
+	      (incf length-sum flags-length)
+	      (etypecase argument
+		(bit-vector (push argument binary))
+		(integer (uinteger-bits argument flags-length)))
+	      (setf arg-head (cdr arg-head))))
+	   (t ; has to be an integer
+	    (let ((actual-arg
+		    (cond ((cdr arg-head)
+			   (uinteger-bits argument arg-length)
+			   (setf arg-head (cdr arg-head))
+			   (setf spec-head (cdr spec-head)))
+			  (t (setf spec-head nil)
+			     (uinteger-bits argument (- (i4004-op-length (car op))
+							length-sum))))))
+	      (cond ((> (length actual-arg)
+			4) ; i4004 word size
+		     (setf binary
+			   (nconc (loop for i from 0 to (- (length actual-arg) 4) by 4
+					collect (subseq actual-arg i (+ i 4)))
+				  binary)))
+		    (t (push actual-arg binary)))))))))))
+  
+(defun i4004-asm (code)
+  (let* ((tag-adr (loop for op in code
+			for index from 0
+			when (keywordp op)
+			  collect (list op index)
+			  and do (decf index)))
+	 (jump-code
+	   (loop for op in code
+		 when (listp op)
+		   collect (loop for part in op
+				 collect (if (keywordp part)
+					     (cadr (assoc part tag-adr))
+					     part)))))
+    (form-bytes 8 (mapcan #'i4004-op-binary jump-code))))
 
 ;; A testing program
 '((LDM 0) ;
