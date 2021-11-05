@@ -374,3 +374,13 @@
 	  (format t "ROM phase counter reached 15! This should not happen!~%")
 	  (setf counter 0))
 	(incf counter)))))
+
+(defun i4001-program (asm-code i4001-list)
+  (let ((binary (i4004-asm asm-code)))
+    (loop for rom in i4001-list
+	  while binary
+	  do (loop for i from 0 to 255
+		   while binary
+		   do (setf (svref (i4001-rom rom) i)
+			    (pop binary))))))
+
