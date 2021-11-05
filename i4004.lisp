@@ -395,3 +395,15 @@
 		   do (setf (svref (i4001-rom rom) i)
 			    (pop binary))))))
 
+(defun i4004-ram-write-op-p (op)
+  (bit-= (bit-and op #*11110001)
+	 #*01110000))
+
+(defun i4004-ram-read-op-p (op)
+  (bit-= (bit-and op #*11110001)
+	 #*01110001))
+
+(defun i4004-src-op-p (op)
+  (bit-= (bit-and op #*11111000)
+	 #*01001000))
+
