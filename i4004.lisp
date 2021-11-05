@@ -407,3 +407,93 @@
   (bit-= (bit-and op #*11111000)
 	 #*01001000))
 
+(define-ic i4002
+  :pins
+  ((d0 :bus)
+   (d1 :bus)
+   (d2 :bus)
+   (d3 :bus)
+   ;;(v-ss)
+   (clock-phase-1 :drive)
+   (clock-phase-2 :drive)
+   (sync :input)
+   (o0 :output)
+   (o1 :output)
+   (o2 :output)
+   (o3 :output)
+   ;;(v-dd)
+   (cm :input)
+   (p0 :input)
+   (reset :input))
+  :registers
+  ((id #*0000 :type bit-vector)
+   (clock-counter 0 :type (integer 0 15))
+   (selected-chip #*00)
+   (selected-reg #*00)
+   (selected-char #*0000)
+   (operation #*00000000)
+   (ram (make-array
+	 4 :initial-contents
+	 (list (make-array
+		20 :element-type 'bit-vector
+		:initial-element #*0000)
+	       (make-array
+		20 :element-type 'bit-vector
+		:initial-element #*0000)
+	       (make-array
+		20 :element-type 'bit-vector
+		:initial-element #*0000)
+	       (make-array
+		20 :element-type 'bit-vector
+		:initial-element #*0000)))))
+  :event-processor
+  (((clock-phase-1 clock-phase-2)
+    (when (and (= (pin-input sync) 1)
+	       (rising-p clock-phase-2))
+      (setf clock-counter 0))
+    (cond ((or (and (evenp clock-counter)
+	            (rising-p clock-phase-2))
+	       (and (oddp clock-counter)
+	            (rising-p clock-phase-1)))
+	   (trigger-clock-counter clock-counter)
+	   (set-register clock-counter (if (< clock-counter 15)
+					   (1+ clock-counter)
+					   0)))
+	  ((or (falling-p clock-phase-1)
+	       (falling-p clock-phase-2))
+	   nil)
+	  (t (error "Clock synchronization error. ~a rising at clock counter ~a."
+		    source clock-counter)))))
+  :secondary-functions
+  ((trigger-clock-counter (trigger)
+     (case trigger;;; TODO: add detection for 2 cycle operations
+       (7 (set-register operation (bits (mapcar #'pin-input (list d0 d1 d2 d3)) 
+					#*0000)))
+       (9 (set-register operation
+			(bit-ior operation
+				 (bits #*1111 (mapcar #'pin-input
+						      (list d0 d1 d2 d3))))))
+       (12 (when (and (= 1 (pin-input cm)) ; this bank selected
+		      (= (bit-integer id) ; this chip selected
+			 (bit-integer selected-chip))
+		      (i4004-ram-read-op-p operation)) ; read op?
+	     (bus-output (svref (svref ram
+				       (bit-integer selected-reg))
+				(bit-integer selected-char))
+			 d0 d1 d2 d3)))
+       (13 (when (and (= 1 (pin-input cm)) ; this bank selected
+		      (= (bit-integer id) ; this chip selected
+			 (bit-integer selected-chip)))
+	     (when (i4004-ram-write-op-p operation) ; write op?
+	       (setf (svref (svref ram
+				   (bit-integer selected-reg))
+			    (bit-integer selected-char))
+		     (bits (mapcar #'pin-input (list d0 d1 d2 d3)))))
+	     (when (i4004-src-op-p operation)
+	       (set-register selected-reg (bits d0 d1)
+			     selected-chip (bits d2 d3)))))
+       (15 (when (and (= 1 (pin-input cm)) ; this bank selected
+		      (= (bit-integer id) ; this chip selected
+			 (bit-integer selected-chip))
+		      (i4004-src-op-p operation))
+	     (set-register selected-char (bits d0 d1 d2 d3))))))))
