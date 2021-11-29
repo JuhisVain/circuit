@@ -55,6 +55,54 @@ PIN using ACCESSOR."
 	     (t (type-of chip)))
 	   *op-mnemonic-library*))
 
+'(progn ;; like so:
+  (defvar *reg* (build-registers '((AF F 8 A 8)
+				   (BC C 8 B 8)
+				   (DE E 8 D 8)
+				   (HL L 8 E 8)
+				   (IX 16)
+				   (IY 16)
+				   (SP 16)
+				   (I 8)
+				   (R 8)
+				   (PC 16)
+				   (INSTRUCTION 32))))
+  (setf (bit (cadr (assoc 'd *reg*)) 0) 1))
+
+(defun build-registers (reg-forms)
+  "Builds an alist (register-name bit-array) based on listing REG-FORMS
+where elements may either be (register-name bit-width) for simple registers
+or (register-name {sub-register-name sub-width}*) for displaced registers."
+  (let ((reg-alist))
+    (dolist (form reg-forms)
+      (cond
+	;; 2 elements -> second must be width
+	((= (length form) 2)
+	 (push (list (car form)
+		     (make-array (cadr form) :element-type 'bit))
+	       reg-alist))
+	((= (length form) 3)
+	 (error "Strange register construction form ~a." form))
+	(t
+	 (let* ((total-width (loop for e in form
+				   when (integerp e)
+				     sum e))
+		(master-array (make-array total-width :element-type 'bit))
+		(sub-arrays
+		  (loop for (sub width) on (cdr form) by #'cddr
+			for index = 0 then (+ index width)
+			collect (list sub
+				      (make-array width :element-type 'bit
+							:displaced-to master-array
+							:displaced-index-offset index)))))
+	   (push (list (car form)
+		       master-array)
+		 reg-alist)
+	   (dolist (sub sub-arrays)
+	     (push sub reg-alist))))))
+    reg-alist))
+	
+
 (defmacro define-ic (name &key cpu pins registers event-processor secondary-functions)
   (let* ((alias (or (when (listp name)
 		      (getf (cdr name) :alias))
