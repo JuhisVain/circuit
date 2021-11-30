@@ -55,31 +55,14 @@ PIN using ACCESSOR."
 	     (t (type-of chip)))
 	   *op-mnemonic-library*))
 
-'(progn ;; like so:
-  (defvar *reg* (build-registers '((AF F 8 A 8)
-				   (BC C 8 B 8)
-				   (DE E 8 D 8)
-				   (HL L 8 E 8)
-				   (IX 16)
-				   (IY 16)
-				   (SP 16)
-				   (I 8)
-				   (R 8)
-				   (PC 16)
-				   (INSTRUCTION 32))))
-  (setf (bit (cadr (assoc 'd *reg*)) 0) 1))
-
-(defun build-registers (reg-forms)
-  "Builds an alist (register-name bit-array) based on listing REG-FORMS
-where elements may either be (register-name bit-width) for simple registers
-or (register-name {sub-register-name sub-width}*) for displaced registers."
+(defun build-registry-build-form (reg-forms)
   (let ((reg-alist))
     (dolist (form reg-forms)
       (cond
 	;; 2 elements -> second must be width
 	((= (length form) 2)
 	 (push (list (car form)
-		     (make-array (cadr form) :element-type 'bit))
+		     `(make-array ,(cadr form) :element-type 'bit))
 	       reg-alist))
 	((= (length form) 3)
 	 (error "Strange register construction form ~a." form))
@@ -87,19 +70,20 @@ or (register-name {sub-register-name sub-width}*) for displaced registers."
 	 (let* ((total-width (loop for e in form
 				   when (integerp e)
 				     sum e))
-		(master-array (make-array total-width :element-type 'bit))
+		(master-array `(make-array ,total-width :element-type 'bit))
 		(sub-arrays
 		  (loop for (sub width) on (cdr form) by #'cddr
 			for index = 0 then (+ index width)
 			collect (list sub
-				      (make-array width :element-type 'bit
-							:displaced-to master-array
-							:displaced-index-offset index)))))
+				      `(make-array ,width :element-type 'bit
+							  :displaced-to ,(car form);master-array
+							  :displaced-index-offset ,index)))))
+	   (dolist (sub sub-arrays)
+	     (push sub reg-alist))
+	   
 	   (push (list (car form)
 		       master-array)
-		 reg-alist)
-	   (dolist (sub sub-arrays)
-	     (push sub reg-alist))))))
+		 reg-alist)))))
     reg-alist))
 	
 
@@ -111,7 +95,8 @@ or (register-name {sub-register-name sub-width}*) for displaced registers."
 		      (intern (concatenate 'string (symbol-name alias) "-"))))
 	 (name (if (symbolp name) name (car name)))
 	 (constructor-func (intern (format nil "MAKE-~a" (symbol-name alias))))
-	 (raw-constructor-func (intern (format nil "RAW-MAKE-~a" (symbol-name alias)))))
+	 (raw-constructor-func (intern (format nil "RAW-MAKE-~a" (symbol-name alias))))
+	 (register-names (remove-if #'numberp (apply #'append registers))))
     (format t "Name ~a  alias ~a~%" name alias)
     (labels ((struct-pin-list (pin-list)
 	       (let ((keyword-plist '(:input make-input-pin
@@ -126,7 +111,7 @@ or (register-name {sub-register-name sub-width}*) for displaced registers."
 	       (loop for (pin-name x) in pin-list
 		     collect `(,pin-name ,(intern (format nil "~a-~a" alias pin-name)))))
 	     (accessor-register-list (reg-list)
-	       (loop for (reg-name . rest) in reg-list
+	       (loop for reg-name in reg-list
 		     collect `(,reg-name ,(intern (format nil "~a-~a" alias reg-name))))))
       
       `(progn
@@ -135,13 +120,13 @@ or (register-name {sub-register-name sub-width}*) for displaced registers."
 			      `((:conc-name ,conc-name)))
 			   (:constructor ,raw-constructor-func))
 	   ,@(struct-pin-list pins)
-	   ,@registers)
+	   ,@register-names)
 	 
 	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (setf (gethash ',name *op-code-library*) (make-op-node))
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
-	   (store-component-register-list ',name ',(accessor-register-list registers))
+	   (store-component-register-list ',name ',(accessor-register-list register-names))
 
 	   ,(when event-processor
 	      `(setf (gethash ',name *event-processor-table*)
@@ -197,4 +182,8 @@ or (register-name {sub-register-name sub-width}*) for displaced registers."
 			when (eq pin-type :drive)
 			  append `((drive-pin-chip ,pin) chip))
 		(ic-event-processor chip) (gethash ',name *event-processor-table*))
+
+	       (setf
+		,@(apply #'append (build-registry-build-form registers)))
+	       
 	       chip)))))))
