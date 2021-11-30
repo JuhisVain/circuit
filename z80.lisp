@@ -46,6 +46,22 @@
    (a10 :output))
 
   :registers
-  ((instruction (make-array 32 :element-type 'bit))
-   ;; register pairs should be done with displaced arrays
-   ))
+  ((AF flags 8 A 8)
+   (BC C 8 B 8)
+   (DE E 8 D 8)
+   (HL L 8 H 8)
+   ;; alternate general purpose registers:
+   (AF^ flags^ 8 A^ 8)
+   (BC^ C^ 8 B^ 8)
+   (DE^ E^ 8 D^ 8)
+   (HL^ L^ 8 H^ 8)
+   
+   (IX 16)
+   (IY 16)
+   (SP 16)
+   (I 8)
+   (R 8)
+   (PC 16)
+   ;; op memory
+   (INSTRUCTION 32))
+  )
