@@ -87,7 +87,7 @@ PIN using ACCESSOR."
     reg-alist))
 	
 
-(defmacro define-ic (name &key cpu pins registers event-processor secondary-functions)
+(defmacro define-ic (name &key cpu pins registers aux event-processor secondary-functions)
   (let* ((alias (or (when (listp name)
 		      (getf (cdr name) :alias))
 		    name))
@@ -120,7 +120,8 @@ PIN using ACCESSOR."
 			      `((:conc-name ,conc-name)))
 			   (:constructor ,raw-constructor-func))
 	   ,@(struct-pin-list pins)
-	   ,@register-names)
+	   ,@register-names
+	   ,@aux)
 	 
 	  ;; compile & load work with clozure, sbcl needs execute
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
