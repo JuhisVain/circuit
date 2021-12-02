@@ -376,6 +376,13 @@ wire
 				   collect bit))))
     (make-array (length bits) :element-type 'bit :initial-contents bits)))
 
+(defun bit-zero (a)
+  "Set all bits to 0"
+  (declare (simple-bit-vector a)
+	   (optimize speed))
+  (dotimes (i (array-total-size a))
+    (setf (bit a i) 0)))
+
 (defun bit-plus (a b)
   (do* (c)
        ((bit-zerop a) b)
