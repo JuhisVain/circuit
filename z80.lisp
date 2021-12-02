@@ -64,4 +64,40 @@
    (PC 16)
    ;; op memory
    (INSTRUCTION 32))
-  )
+
+  :aux
+  ((t-cycle 0 :type (integer 0 6))
+   (m-cycle 'opcode-fetch :type symbol))
+
+  :event-processor
+  ((clk
+    (ecase m-cycle
+      (OPCODE-FETCH (opcode-fetch)))))
+
+  :secondary-functions
+  ((opcode-fetch ()
+     (cond ((rising-p clk)
+	    (case t-cycle
+	      (0
+	       (bus-output
+		PC a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15) ; unsure
+	       (set-register PC (bit-1+ PC))
+	       (bit-zero INSTRUCTION))
+	      (2
+	       (setf INSTRUCTION (bits (mapcar #'pin-input (list d0 d1 d2 d3 d4 d5 d6 d7))
+				       #.(make-array 24 :element-type 'bit :initial-element 0)))
+	       (output mreq 1
+		       rd 1
+		       rfsh 0
+		       m1 1)
+	       (bus-output #*10101010 ;; TODO: memory refresh address ???
+			   a0 a1 a2 a3 a4 a5 a6 a7))))
+	   ((falling-p clk)
+	    (case t-cycle
+	      (0
+	       (output mreq 0
+		      rd 0))
+	      (2
+	       (output mreq 0)))
+	    (incf t-cycle) ;; TODO: when end of m-cycle, must set to zero and switch m
+	    )))))
