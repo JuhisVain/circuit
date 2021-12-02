@@ -127,7 +127,10 @@ PIN using ACCESSOR."
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (setf (gethash ',name *op-code-library*) (make-op-node))
 	   (store-component-pin-list ',name ',(accessor-pin-list pins))
-	   (store-component-register-list ',name ',(accessor-register-list register-names))
+	   (store-component-register-list
+	    ',name
+	    ',(accessor-register-list (append (mapcar #'car aux)
+					      register-names)))
 
 	   ,(when event-processor
 	      `(setf (gethash ',name *event-processor-table*)
