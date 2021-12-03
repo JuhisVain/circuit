@@ -81,7 +81,8 @@
 	      (0
 	       (bus-output
 		PC a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15) ; unsure
-	       (set-register PC (bit-1+ PC))
+	       (set-register PC (bit-1+ PC)
+			     R (bit-1+ R))
 	       (bit-zero INSTRUCTION))
 	      (2
 	       (setf INSTRUCTION (bits (mapcar #'pin-input (list d0 d1 d2 d3 d4 d5 d6 d7))
