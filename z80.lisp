@@ -100,5 +100,7 @@
 		      rd 0))
 	      (2
 	       (output mreq 0)))
+	    ;;; NOTE: Documentation says FETCH cycle is 4, 5 or 6 T-cycles long
+	    ;;; -> No timings found for mystery T5 & T6
 	    (incf t-cycle) ;; TODO: when end of m-cycle, must set to zero and switch m
 	    )))))

@@ -1,5 +1,7 @@
 (in-package :temp)
 
+;; Obsolete code
+
 (define-ic i4004
   :cpu (:word-size 4 :byte-size 8 :endianness :big-endian)
   :pins
