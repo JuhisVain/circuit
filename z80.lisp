@@ -67,7 +67,8 @@
 
   :aux
   ((t-cycle 0 :type (integer 0 6))
-   (m-cycle 'opcode-fetch :type symbol))
+   (m-cycle 'opcode-fetch :type symbol)
+   (states-in-m 4 :type (integer 0 6)))
 
   :event-processor
   ((clk
