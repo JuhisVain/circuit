@@ -86,7 +86,7 @@
 	       (bit-zero INSTRUCTION))
 	      (2
 	       (setf INSTRUCTION (bits (mapcar #'pin-input (list d0 d1 d2 d3 d4 d5 d6 d7))
-				       #.(make-array 24 :element-type 'bit :initial-element 0)))
+				       (make-bits 24)))
 	       (output mreq 1
 		       rd 1
 		       rfsh 0

@@ -376,6 +376,13 @@ wire
 				   collect bit))))
     (make-array (length bits) :element-type 'bit :initial-contents bits)))
 
+(declaim (inline make-bits))
+(defun make-bits (n &optional (default 0))
+  (declare (fixnum n)
+	   (bit default)
+	   (optimize speed))
+  (make-array n :element-type 'bit :initial-element default))
+
 (defun bit-zero (a)
   "Set all bits to 0"
   (declare (simple-bit-vector a)
