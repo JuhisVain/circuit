@@ -41,7 +41,7 @@ PIN using ACCESSOR."
 
 
 (defvar *op-code-library* (make-hash-table :test 'eq))
-(defvar *op-mnemonic-library* (make-hash-table :test 'eq))
+(defvar *op-library* (make-hash-table :test 'eq))
 
 (defun chip-op-lib (chip)
   (gethash (typecase chip
@@ -49,11 +49,11 @@ PIN using ACCESSOR."
 	     (t (type-of chip)))
 	   *op-code-library*))
 
-(defun list-op-mnemonics (chip)
+(defun list-ops (chip)
   (gethash (typecase chip
 	     (symbol chip)
 	     (t (type-of chip)))
-	   *op-mnemonic-library*))
+	   *op-library*))
 
 (defun build-registry-build-form (reg-forms)
   (let ((reg-alist))

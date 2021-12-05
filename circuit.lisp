@@ -264,23 +264,23 @@ wire
 	     (setf (cdr (assoc bit vars)) (append (cdr (assoc bit vars)) (list index))))
 	    (t (push (list bit index) vars))))))
 
-(defun add-mnemonic-args (chip-type mnemonic bits)
-  "Stores mnemonic arg lists as (MNEMONIC BINARY-CODE (ARG-NAME ARG-BIT-LENGTH)*)"
-  (let ((mnem-lambda-form (or (assoc mnemonic
-				     (gethash chip-type *op-mnemonic-library*))
-			      (car (push (list mnemonic)
-					 (gethash chip-type *op-mnemonic-library*))))))
-    (setf (cdr mnem-lambda-form)
+(defun add-op-args (chip-type op bits)
+  "Stores operation arg lists as (OP BINARY-CODE (ARG-NAME ARG-BIT-LENGTH)*)"
+  (let ((op-lambda-form (or (assoc op
+				   (gethash chip-type *op-library*))
+			    (car (push (list op)
+				       (gethash chip-type *op-library*))))))
+    (setf (cdr op-lambda-form)
 	  (list* (bits (loop for b in bits when (bitp b) collect b))
 		 (mapcar #'(lambda (arg)
 			     (list (car arg) (length (cdr arg))))
 			 (sort (collect-op-code-variables bits)
 			       #'< :key #'cadr))))))
 
-(defmacro defoperation (chip-type mnemonic (&rest bits) &body body)
+(defmacro defoperation (chip-type op-name (&rest bits) &body body)
   (let ((variables (collect-op-code-variables bits)))
     `(progn
-       (add-mnemonic-args ',chip-type ',mnemonic ',bits)
+       (add-op-args ',chip-type ',op-name ',bits)
        (add-op-code
 	(make-operation
 	 :function
