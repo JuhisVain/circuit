@@ -93,7 +93,10 @@
 		       rfsh 0
 		       m1 1)
 	       (bus-output #*10101010 ;; TODO: memory refresh address ???
-			   a0 a1 a2 a3 a4 a5 a6 a7))))
+			   a0 a1 a2 a3 a4 a5 a6 a7))
+	      (3
+	       ;; TODO: instruction reg and NOP-op width not matching
+	       (execute INSTRUCTION))))
 	   ((falling-p clk)
 	    (case t-cycle
 	      (0
@@ -101,7 +104,13 @@
 		      rd 0))
 	      (2
 	       (output mreq 0)))
-	    ;;; NOTE: Documentation says FETCH cycle is 4, 5 or 6 T-cycles long
-	    ;;; -> No timings found for mystery T5 & T6
-	    (incf t-cycle) ;; TODO: when end of m-cycle, must set to zero and switch m
-	    )))))
+
+	    ;;; Currently I'm thinking OP execution should set m-cycle
+	    (cond ((< t-cycle (1- states-in-m))
+		   (incf t-cycle))
+		  (t (setf t-cycle 0))
+	    ))))))
+
+
+(defoperation z-80 no-operation (0 0 0 0 0 0 0 0)
+  (set-register states-in-m 4))
