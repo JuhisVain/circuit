@@ -280,46 +280,47 @@ wire
 (defmacro defoperation (chip-type op-name (&rest bits) &body body)
   (let ((variables (collect-op-code-variables bits)))
     `(progn
-       (add-op-args ',chip-type ',op-name ',bits)
-       (add-op-code
-	(make-operation
-	 :function
-	 #'(lambda (op-code chip trigger time)
-	     (declare (ignorable op-code chip trigger time))
-	     (let ,(mapcar #'(lambda (op-var-indexes)
-			       `(,(car op-var-indexes)
-				 (make-array ,(length (cdr op-var-indexes))
-					     :element-type 'bit
-					     :initial-contents (mapcar #'(lambda (index)
-									   (bit op-code index))
-								       ',(cdr op-var-indexes)))))
-		    variables)
-	       (macrolet ((output (&rest pin-values)
-			    `(progn
-			       ,@(loop for (pin value) on pin-values by #'cddr
-				       collect `(set-output ,pin ,value time))))
-			  (bus-output (bit-array &rest bus-pins)
-			    (let ((bits (gensym)))
-			      `(let ((,bits ,bit-array))
-				 ,@(loop for pin in bus-pins
-					 for index from 0
-					 collect `(set-output
-						   ,pin (bit ,bits ,index) time)))))
-			  (floating (&rest pins)
-			    `(progn
-			       ,@(loop for pin in pins
-				       collect `(cut-output ,pin time))))
-			  (set-register (&rest register-values)
-			    `(progn
-			       ,@(loop for (register value) on register-values by #'cddr
-				       collect `(setf ,register ,value))))
-			  (execute (op) ; requires op library
-			    `(execute-operation chip ,op trigger time)))
-		 (with-pins-and-registers ,chip-type chip
-		   ,@body))))
-	 :length ,(length bits))
-	',bits
-	(chip-op-lib ',chip-type)))))
+       (eval-when (:compile-toplevel :load-toplevel :execute)
+	 (add-op-args ',chip-type ',op-name ',bits)
+	 (add-op-code
+	  (make-operation
+	   :function
+	   #'(lambda (op-code chip trigger time)
+	       (declare (ignorable op-code chip trigger time))
+	       (let ,(mapcar #'(lambda (op-var-indexes)
+				 `(,(car op-var-indexes)
+				   (make-array ,(length (cdr op-var-indexes))
+					       :element-type 'bit
+					       :initial-contents (mapcar #'(lambda (index)
+									     (bit op-code index))
+									 ',(cdr op-var-indexes)))))
+		      variables)
+		 (macrolet ((output (&rest pin-values)
+			      `(progn
+				 ,@(loop for (pin value) on pin-values by #'cddr
+					 collect `(set-output ,pin ,value time))))
+			    (bus-output (bit-array &rest bus-pins)
+			      (let ((bits (gensym)))
+				`(let ((,bits ,bit-array))
+				   ,@(loop for pin in bus-pins
+					   for index from 0
+					   collect `(set-output
+						     ,pin (bit ,bits ,index) time)))))
+			    (floating (&rest pins)
+			      `(progn
+				 ,@(loop for pin in pins
+					 collect `(cut-output ,pin time))))
+			    (set-register (&rest register-values)
+			      `(progn
+				 ,@(loop for (register value) on register-values by #'cddr
+					 collect `(setf ,register ,value))))
+			    (execute (op) ; requires op library
+			      `(execute-operation chip ,op trigger time)))
+		   (with-pins-and-registers ,chip-type chip
+		     ,@body))))
+	   :length ,(length bits))
+	  ',bits
+	  (chip-op-lib ',chip-type))))))
 
 (defmacro add-to-cycle (&rest trigger-case-statements)
   `(case trigger
