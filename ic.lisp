@@ -56,35 +56,39 @@ PIN using ACCESSOR."
 	   *op-library*))
 
 (defun build-registry-build-form (reg-forms)
-  (let ((reg-alist))
-    (dolist (form reg-forms)
-      (cond
-	;; 2 elements -> second must be width
-	((= (length form) 2)
-	 (push (list (car form)
-		     `(make-array ,(cadr form) :element-type 'bit))
-	       reg-alist))
-	((= (length form) 3)
-	 (error "Strange register construction form ~a." form))
-	(t
-	 (let* ((total-width (loop for e in form
-				   when (integerp e)
-				     sum e))
-		(master-array `(make-array ,total-width :element-type 'bit))
-		(sub-arrays
-		  (loop for (sub width) on (cdr form) by #'cddr
-			for index = 0 then (+ index width)
-			collect (list sub
-				      `(make-array ,width :element-type 'bit
-							  :displaced-to ,(car form);master-array
-							  :displaced-index-offset ,index)))))
-	   (dolist (sub sub-arrays)
-	     (push sub reg-alist))
-	   
+  (labels ((flatten-sum (list)
+	     (loop for e in list
+		   when (numberp e)
+		     sum e
+		   when (listp e)
+		     sum (flatten-sum e))))
+    (let ((reg-alist))
+      (dolist (form reg-forms)
+	(cond
+	  ;; 2 elements -> second must be width
+	  ((= (length form) 2)
 	   (push (list (car form)
-		       master-array)
-		 reg-alist)))))
-    reg-alist))
+		       `(make-array ,(cadr form) :element-type 'bit))
+		 reg-alist))
+	  ((= (length form) 3)
+	   (error "Strange register construction form ~a." form))
+	  (t
+	   (let* ((total-width (flatten-sum form))
+		  (master-array `(make-array ,total-width :element-type 'bit))
+		  (sub-arrays
+		    (loop for (sub width) on (cdr form) by #'cddr
+			  for index = 0 then (+ index width)
+			  collect (list sub
+					`(make-array ,width :element-type 'bit
+							    :displaced-to ,(car form);master-array
+							    :displaced-index-offset ,index)))))
+	     (dolist (sub sub-arrays)
+	       (push sub reg-alist))
+	     
+	     (push (list (car form)
+			 master-array)
+		   reg-alist)))))
+      reg-alist)))
 	
 
 (defmacro define-ic (name &key cpu pins registers aux event-processor secondary-functions)
