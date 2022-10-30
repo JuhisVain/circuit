@@ -47,6 +47,10 @@
 
   :registers
   ((AF flags 8 A 8)
+   ;; TODO: rewrite   build-registry-build-form
+  ;;(AF (flags
+;;	S 1 Z 1 -1 1 H 1 -2 1 P/V 1 N 1 C 1)
+ ;;      A 8)
    (BC C 8 B 8)
    (DE E 8 D 8)
    (HL L 8 H 8)
@@ -95,7 +99,6 @@
 	       (bus-output #*10101010 ;; TODO: memory refresh address ???
 			   a0 a1 a2 a3 a4 a5 a6 a7))
 	      (3
-	       ;; TODO: instruction reg and NOP-op width not matching
 	       (execute INSTRUCTION))))
 	   ((falling-p clk)
 	    (case t-cycle
@@ -111,6 +114,17 @@
 		  (t (setf t-cycle 0))
 	    ))))))
 
-
 (defoperation z-80 no-operation (0 0 0 0 0 0 0 0)
   (set-register states-in-m 4))
+
+;;There's not enough timing data to implement arithmetic
+;; meaning this is all useless
+'(defoperation z-80 add-with-carry-16-bit
+    (1 0 1 1 0 1 1 1
+     0 1 0 1 s s 1 0)
+  ;;
+  (set-register states-in-m 4)
+  ;;(case s
+  ;;(#*00 ))
+  
+  )
